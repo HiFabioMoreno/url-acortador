@@ -58,6 +58,7 @@ public class UrlControladorTests {
         UrlRespuesta respuesta = new UrlRespuesta(
                 url.getId(),
                 url.getOriginalUrl(),
+                url.getTitulo(),
                 url.getSlug(),
                 url.getFechaRegistro(),
                 url.getFechaModificacion(),
@@ -119,6 +120,7 @@ public class UrlControladorTests {
 
         ActualizarRespuesta urlActulizar = new ActualizarRespuesta(
                 "https://www.youtube.com",
+                "YouTube",
                 false,
                 false
         );
@@ -126,6 +128,7 @@ public class UrlControladorTests {
         UrlRespuesta respuesta = new UrlRespuesta(
                 1,
                 "https://www.youtube.com",
+                url.getTitulo(),
                 url.getSlug(),
                 url.getFechaRegistro(),
                 url.getFechaModificacion(),
@@ -145,7 +148,7 @@ public class UrlControladorTests {
     @Test
     void actualizarUrl_CuandoUrlInvalida_DebeRetornar400() throws Exception {
 
-        ActualizarRespuesta body = new ActualizarRespuesta("ftp://invalida", false, false);
+        ActualizarRespuesta body = new ActualizarRespuesta("ftp://invalida", null, false, false);
 
         mockMvc.perform(patch("/acortador/1/")
                         .contentType(MediaType.APPLICATION_JSON)

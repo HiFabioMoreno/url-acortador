@@ -117,7 +117,7 @@ public class UrlControladorIntegracionTests {
         url.setVecesAccedido(0);
         Url guardada = urlRepositorio.save(url);
 
-        ActualizarRespuesta dto = new ActualizarRespuesta("https://nueva.com", false, false);
+        ActualizarRespuesta dto = new ActualizarRespuesta("https://nueva.com", null, false, false);
 
         mockMvc.perform(patch("/acortador/" + guardada.getId() + "/")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -131,7 +131,7 @@ public class UrlControladorIntegracionTests {
     @DisplayName("PATCH /acortador/{id}/ - id inexistente debe retornar 500 o 404")
     void actualizarUrl_conIdInexistente_debeRetornarError() throws Exception {
 
-        ActualizarRespuesta dto = new ActualizarRespuesta("https://nueva.com", false, false);
+        ActualizarRespuesta dto = new ActualizarRespuesta("https://nueva.com", null, false, false);
 
         mockMvc.perform(patch("/acortador/9999/")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -172,7 +172,7 @@ public class UrlControladorIntegracionTests {
     void FlujoCompletoCrud_debeFuncionarCorrectamente() throws Exception {
 
         UrlSolicitud solicitud = new UrlSolicitud("https://www.google.com");
-        ActualizarRespuesta actualizarUrl = new ActualizarRespuesta("https://www.instagram.com/",false,true);
+        ActualizarRespuesta actualizarUrl = new ActualizarRespuesta("https://www.instagram.com/", null, false, true);
 
         MvcResult result = mockMvc.perform(post("/acortador/")
                         .contentType(MediaType.APPLICATION_JSON)

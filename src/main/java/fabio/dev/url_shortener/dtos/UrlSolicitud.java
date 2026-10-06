@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 public record UrlSolicitud (
         @NotBlank
         @Pattern(
-                regexp = "^(http|https)://.*$",
+                regexp = "^(https)://.*$",
                 message = "URL inválida"
         )
         String url
