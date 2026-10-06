@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -214,6 +215,26 @@ public class UrlControladorIntegracionTests {
                 .andExpect(status().isNoContent());
 
         assertFalse(urlRepositorio.existsById(1));
+    }
+
+    @Test
+    @DisplayName("POST /acortador/ - debe permitir el origen del frontend en localhost:4200")
+    void registrarUrl_debePermitirOrigenDelFrontend() throws Exception {
+
+        mockMvc.perform(post("/acortador/")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Origin", "http://localhost:4200")
+                        .content(objectMapper.writeValueAsString(new UrlSolicitud("https://www.google.com"))))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"));
+
+        mockMvc.perform(options("/acortador/")
+                        .header("Origin", "http://localhost:4200")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "content-type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"))
+                .andExpect(header().string("Access-Control-Allow-Methods", containsString("POST")));
     }
 
 }
