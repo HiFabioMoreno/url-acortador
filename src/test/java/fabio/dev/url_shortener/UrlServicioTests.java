@@ -6,6 +6,7 @@ import fabio.dev.url_shortener.dtos.UrlSolicitud;
 import fabio.dev.url_shortener.excepciones.InvalidInputException;
 import fabio.dev.url_shortener.modelos.Url;
 import fabio.dev.url_shortener.repositorios.UrlRepositorio;
+import fabio.dev.url_shortener.servicios.GeneradorTitulo;
 import fabio.dev.url_shortener.servicios.UrlServicio;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,9 @@ class UrlServicioTests {
 
 	@Mock
 	private UrlRepositorio urlRepositorio;
+
+	@Mock
+	private GeneradorTitulo generadorTitulo;
 
 	@InjectMocks
 	private UrlServicio urlServicio;
@@ -52,6 +56,7 @@ class UrlServicioTests {
 	@DisplayName("Deberia guardar y acortar exitosamente un url")
 	public void deberiaGuardarUrlExistosamente()  {
 
+		when(generadorTitulo.generar()).thenReturn("Enlace1");
 		when(urlRepositorio.save(any(Url.class))).thenAnswer(i -> {
 				Url u = i.getArgument(0);
 				u.setFechaRegistro(LocalDateTime.now().toString());
@@ -61,6 +66,7 @@ class UrlServicioTests {
 		UrlRespuesta nuevaUrl = urlServicio.crearShortUrl(new UrlSolicitud("https://www.google.com"));
 
 		assertEquals("https://www.google.com",nuevaUrl.originalUrl());
+		assertEquals("Enlace1",nuevaUrl.titulo());
 		assertNotNull(nuevaUrl.fechaRegistro());
 		assertNotNull(nuevaUrl.slug());
 		assertEquals(0, nuevaUrl.vecesAccedido());
@@ -99,55 +105,18 @@ class UrlServicioTests {
 	}
 
 	@Test
-	@DisplayName("Deberia actualizar el contador de un url exitosamente")
-	public void deberiaActualizarElContadorDelUrlExistosamente() {
+	@DisplayName("Deberia actualizar el titulo exitosamente")
+	public void deberiaActualizarElTituloExistosamente() {
 
 		when(urlRepositorio.findById(anyInt())).thenReturn(Optional.of(this.url));
 		when(urlRepositorio.save(any(Url.class))).thenReturn(this.url);
 
 		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta(null, false, true)
+				1, new ActualizarRespuesta( "Google Home")
 		);
 
-		assertEquals(1,urlRespuesta.vecesAccedido());
-		assertEquals("https://www.google.com",urlRespuesta.originalUrl());
-
-		verify(urlRepositorio, times(1)).findById(anyInt());
-
-	}
-
-	@Test
-	@DisplayName("Deberia actualizar el url exitosamente")
-	public void deberiaActualizarElUrlExistosamente() {
-
-		when(urlRepositorio.findById(anyInt())).thenReturn(Optional.of(this.url));
-		when(urlRepositorio.save(any(Url.class))).thenReturn(this.url);
-
-		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta("https://www.youtube.com/", false, false)
-		);
-
-		assertEquals(0,urlRespuesta.vecesAccedido());
-		assertEquals("https://www.youtube.com/",urlRespuesta.originalUrl());
-
-		verify(urlRepositorio, times(1)).findById(anyInt());
-
-	}
-
-	@Test
-	@DisplayName("Deberia actualizar el slug exitosamente")
-	public void deberiaActualizarSlugExistosamente() {
-
-		when(urlRepositorio.findById(anyInt())).thenReturn(Optional.of(this.url));
-		when(urlRepositorio.save(any(Url.class))).thenReturn(this.url);
-
-		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta(null, true, false)
-		);
-
-		assertEquals(0,urlRespuesta.vecesAccedido());
-		assertEquals("https://www.google.com",urlRespuesta.originalUrl());
-		assertNotEquals("uzdkr8", urlRespuesta.slug());
+		assertEquals("Google Home", urlRespuesta.titulo());
+		assertEquals("https://www.google.com", urlRespuesta.originalUrl());
 
 		verify(urlRepositorio, times(1)).findById(anyInt());
 

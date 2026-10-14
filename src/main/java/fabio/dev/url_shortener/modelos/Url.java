@@ -19,12 +19,15 @@ public class Url {
     private Integer id;
 
     @NotBlank(message = "El url no puede estar vacio")
-    @Column(unique = true)
+    @Column(unique = true, length = 2048)
     private String originalUrl;
 
     @NotBlank(message = "El slug no puede estar vacio")
     @Column(unique = true)
     private String slug;
+
+    @Column(name = "titulo", length = 255)
+    private String titulo;
 
     @Column(name = "fechaRegistro", nullable = false, updatable = false)
     private String fechaRegistro;

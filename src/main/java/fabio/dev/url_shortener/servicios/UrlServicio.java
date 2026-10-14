@@ -26,10 +26,12 @@ import static fabio.dev.url_shortener.modelos.Url.GenerarTimestamp;
 public class UrlServicio {
 
     private UrlRepositorio urlRepositorio;
+    private final GeneradorTitulo generadorTitulo;
     private final Logger logger = LoggerFactory.getLogger(UrlServicio.class);
 
-    public UrlServicio(UrlRepositorio urlRepositorio) {
+    public UrlServicio(UrlRepositorio urlRepositorio, GeneradorTitulo generadorTitulo) {
         this.urlRepositorio = urlRepositorio;
+        this.generadorTitulo = generadorTitulo;
     }
 
     @Transactional
@@ -39,6 +41,7 @@ public class UrlServicio {
 
         Url shortUrl = new Url();
         shortUrl.setOriginalUrl(urlSolicitud.url());
+        shortUrl.setTitulo(generadorTitulo.generar());
         shortUrl.setSlug(GeneradorUrl());
         shortUrl.setFechaModificacion(GenerarTimestamp());
         shortUrl.setVecesAccedido(0);
@@ -50,6 +53,7 @@ public class UrlServicio {
         return new UrlRespuesta(
                 shortUrl.getId(),
                 shortUrl.getOriginalUrl(),
+                shortUrl.getTitulo(),
                 shortUrl.getSlug(),
                 shortUrl.getFechaRegistro(),
                 shortUrl.getFechaModificacion(),
@@ -79,6 +83,7 @@ public class UrlServicio {
             urlsList.add(new UrlRespuesta(
                     url.getId(),
                     url.getOriginalUrl(),
+                    url.getTitulo(),
                     url.getSlug(),
                     url.getFechaRegistro(),
                     url.getFechaModificacion(),
@@ -89,10 +94,9 @@ public class UrlServicio {
     }
 
     @Transactional
-    public UrlRespuesta actualizarShortUrl(Integer id,ActualizarRespuesta actualizarRespuesta)  {
+    public UrlRespuesta actualizarShortUrl(Integer id, ActualizarRespuesta actualizarRespuesta)  {
 
         logger.info("Actualizando url con id : {}", id);
-
 
         if (actualizarRespuesta == null) {
             throw new InvalidInputException("La solicitud no puede estar vacia");
@@ -100,17 +104,8 @@ public class UrlServicio {
 
         Url url = urlRepositorio.findById(id).orElseThrow( () -> new RuntimeException("El url no existe"));
 
-        if (actualizarRespuesta.url() != null){
-            url.setOriginalUrl(actualizarRespuesta.url());
-        }
-
-        if (actualizarRespuesta.cambiarSlug()) {
-            url.setSlug(GeneradorUrl());
-        }
-
-        if (actualizarRespuesta.esClicked()) {
-            Integer vecesAccedido = url.getVecesAccedido();
-            url.setVecesAccedido(vecesAccedido + 1);
+        if (actualizarRespuesta.titulo() != null){
+            url.setTitulo(actualizarRespuesta.titulo());
         }
 
         logger.info("Url actualizada exitosamente");
@@ -118,6 +113,7 @@ public class UrlServicio {
         return new UrlRespuesta(
                 url.getId(),
                 url.getOriginalUrl(),
+                url.getTitulo(),
                 url.getSlug(),
                 url.getFechaRegistro(),
                 url.getFechaModificacion(),
