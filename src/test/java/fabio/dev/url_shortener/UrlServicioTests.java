@@ -105,42 +105,6 @@ class UrlServicioTests {
 	}
 
 	@Test
-	@DisplayName("Deberia actualizar el contador de un url exitosamente")
-	public void deberiaActualizarElContadorDelUrlExistosamente() {
-
-		when(urlRepositorio.findById(anyInt())).thenReturn(Optional.of(this.url));
-		when(urlRepositorio.save(any(Url.class))).thenReturn(this.url);
-
-		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta(null, null, false, true)
-		);
-
-		assertEquals(1,urlRespuesta.vecesAccedido());
-		assertEquals("https://www.google.com",urlRespuesta.originalUrl());
-
-		verify(urlRepositorio, times(1)).findById(anyInt());
-
-	}
-
-	@Test
-	@DisplayName("Deberia actualizar el url exitosamente")
-	public void deberiaActualizarElUrlExistosamente() {
-
-		when(urlRepositorio.findById(anyInt())).thenReturn(Optional.of(this.url));
-		when(urlRepositorio.save(any(Url.class))).thenReturn(this.url);
-
-		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta("https://www.youtube.com/", null, false, false)
-		);
-
-		assertEquals(0,urlRespuesta.vecesAccedido());
-		assertEquals("https://www.youtube.com/",urlRespuesta.originalUrl());
-
-		verify(urlRepositorio, times(1)).findById(anyInt());
-
-	}
-
-	@Test
 	@DisplayName("Deberia actualizar el titulo exitosamente")
 	public void deberiaActualizarElTituloExistosamente() {
 
@@ -148,30 +112,11 @@ class UrlServicioTests {
 		when(urlRepositorio.save(any(Url.class))).thenReturn(this.url);
 
 		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta(null, "Google Home", false, false)
+				1, new ActualizarRespuesta( "Google Home")
 		);
 
 		assertEquals("Google Home", urlRespuesta.titulo());
 		assertEquals("https://www.google.com", urlRespuesta.originalUrl());
-
-		verify(urlRepositorio, times(1)).findById(anyInt());
-
-	}
-
-	@Test
-	@DisplayName("Deberia actualizar el slug exitosamente")
-	public void deberiaActualizarSlugExistosamente() {
-
-		when(urlRepositorio.findById(anyInt())).thenReturn(Optional.of(this.url));
-		when(urlRepositorio.save(any(Url.class))).thenReturn(this.url);
-
-		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta(null, null, true, false)
-		);
-
-		assertEquals(0,urlRespuesta.vecesAccedido());
-		assertEquals("https://www.google.com",urlRespuesta.originalUrl());
-		assertNotEquals("uzdkr8", urlRespuesta.slug());
 
 		verify(urlRepositorio, times(1)).findById(anyInt());
 

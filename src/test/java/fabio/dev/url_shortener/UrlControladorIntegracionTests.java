@@ -118,13 +118,13 @@ public class UrlControladorIntegracionTests {
         url.setVecesAccedido(0);
         Url guardada = urlRepositorio.save(url);
 
-        ActualizarRespuesta dto = new ActualizarRespuesta("https://nueva.com", null, false, false);
+        ActualizarRespuesta dto = new ActualizarRespuesta("Cambio de titulo");
 
         mockMvc.perform(patch("/acortador/" + guardada.getId() + "/")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.originalUrl").value("https://nueva.com"));
+                .andExpect(jsonPath("$.titulo").value("Cambio de titulo"));
     }
 
 
@@ -132,7 +132,7 @@ public class UrlControladorIntegracionTests {
     @DisplayName("PATCH /acortador/{id}/ - id inexistente debe retornar 500 o 404")
     void actualizarUrl_conIdInexistente_debeRetornarError() throws Exception {
 
-        ActualizarRespuesta dto = new ActualizarRespuesta("https://nueva.com", null, false, false);
+        ActualizarRespuesta dto = new ActualizarRespuesta("Cambio de titulo");
 
         mockMvc.perform(patch("/acortador/9999/")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -173,7 +173,7 @@ public class UrlControladorIntegracionTests {
     void FlujoCompletoCrud_debeFuncionarCorrectamente() throws Exception {
 
         UrlSolicitud solicitud = new UrlSolicitud("https://www.google.com");
-        ActualizarRespuesta actualizarUrl = new ActualizarRespuesta("https://www.instagram.com/", null, false, true);
+        ActualizarRespuesta actualizarUrl = new ActualizarRespuesta("Cambio de titulo");
 
         MvcResult result = mockMvc.perform(post("/acortador/")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -206,10 +206,9 @@ public class UrlControladorIntegracionTests {
                 .content(objectMapper.writeValueAsString(actualizarUrl)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idUrl").exists())
-                .andExpect(jsonPath("$.originalUrl").value("https://www.instagram.com/"))
+                .andExpect(jsonPath("$.originalUrl").value("https://www.google.com"))
                 .andExpect(jsonPath("$.slug").exists())
-                .andExpect(jsonPath("$.fechaModificacion").exists())
-                .andExpect(jsonPath("$.vecesAccedido").value(1));
+                .andExpect(jsonPath("$.fechaModificacion").exists());
 
         mockMvc.perform(delete("/acortador/1/"))
                 .andExpect(status().isNoContent());

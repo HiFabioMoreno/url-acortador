@@ -47,6 +47,7 @@ public class UrlControladorTests {
         url.setId(1);
         url.setOriginalUrl("https://www.google.com");
         url.setSlug("uzdkr8");
+        url.setTitulo("Youtube busqueda");
         url.setFechaRegistro(LocalDateTime.now().toString());
         url.setFechaModificacion(LocalDateTime.now().toString());
         url.setVecesAccedido(0);
@@ -118,48 +119,27 @@ public class UrlControladorTests {
     @Test
     void actualizarUrl_DebeRetornar200ConUrlActualizada() throws Exception {
 
-        ActualizarRespuesta urlActulizar = new ActualizarRespuesta(
-                "https://www.youtube.com",
-                "YouTube",
-                false,
-                false
-        );
+        ActualizarRespuesta urlActualizar = new ActualizarRespuesta("YouTube");
 
         UrlRespuesta respuesta = new UrlRespuesta(
                 1,
-                "https://www.youtube.com",
-                url.getTitulo(),
+                url.getOriginalUrl(),
+                urlActualizar.titulo(),
                 url.getSlug(),
                 url.getFechaRegistro(),
                 url.getFechaModificacion(),
                 url.getVecesAccedido()
         );
 
-        when(urlServicio.actualizarShortUrl(1, urlActulizar)).thenReturn(respuesta);
+        when(urlServicio.actualizarShortUrl(1, urlActualizar)).thenReturn(respuesta);
 
         mockMvc.perform(patch("/acortador/1/")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(urlActulizar)))
+                    .content(objectMapper.writeValueAsString(urlActualizar)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.slug").value("uzdkr8"))
-                .andExpect(jsonPath("$.originalUrl").value("https://www.youtube.com"));
+                .andExpect(jsonPath("$.titulo").value("YouTube"));
     }
-
-    @Test
-    void actualizarUrl_CuandoUrlInvalida_DebeRetornar400() throws Exception {
-
-        ActualizarRespuesta body = new ActualizarRespuesta("ftp://invalida", null, false, false);
-
-        mockMvc.perform(patch("/acortador/1/")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errorCode").value("VALIDACION_FALLIDA"))
-                .andExpect(jsonPath("$.mensaje").value("La validacion fallo para uno o mas campos"))
-                .andExpect(jsonPath("$.path").exists())
-                .andExpect(jsonPath("$.timestamp").exists());
-    }
-
 
     @Test
     void eliminarUrl_DebeRetornar200ConUrlEliminada() throws Exception {

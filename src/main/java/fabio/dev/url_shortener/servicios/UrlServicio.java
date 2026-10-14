@@ -94,10 +94,9 @@ public class UrlServicio {
     }
 
     @Transactional
-    public UrlRespuesta actualizarShortUrl(Integer id,ActualizarRespuesta actualizarRespuesta)  {
+    public UrlRespuesta actualizarShortUrl(Integer id, ActualizarRespuesta actualizarRespuesta)  {
 
         logger.info("Actualizando url con id : {}", id);
-
 
         if (actualizarRespuesta == null) {
             throw new InvalidInputException("La solicitud no puede estar vacia");
@@ -105,21 +104,8 @@ public class UrlServicio {
 
         Url url = urlRepositorio.findById(id).orElseThrow( () -> new RuntimeException("El url no existe"));
 
-        if (actualizarRespuesta.url() != null){
-            url.setOriginalUrl(actualizarRespuesta.url());
-        }
-
         if (actualizarRespuesta.titulo() != null){
             url.setTitulo(actualizarRespuesta.titulo());
-        }
-
-        if (actualizarRespuesta.cambiarSlug()) {
-            url.setSlug(GeneradorUrl());
-        }
-
-        if (actualizarRespuesta.esClicked()) {
-            Integer vecesAccedido = url.getVecesAccedido();
-            url.setVecesAccedido(vecesAccedido + 1);
         }
 
         logger.info("Url actualizada exitosamente");
