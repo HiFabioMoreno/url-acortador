@@ -8,14 +8,11 @@ import fabio.dev.url_shortener.modelos.Url;
 import fabio.dev.url_shortener.repositorios.UrlRepositorio;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
-import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,7 +41,7 @@ public class UrlServicio {
         shortUrl.setTitulo(generadorTitulo.generar());
         shortUrl.setSlug(GeneradorUrl());
         shortUrl.setFechaModificacion(GenerarTimestamp());
-        shortUrl.setVecesAccedido(0);
+        shortUrl.setClicks(0);
 
         urlRepositorio.save(shortUrl);
 
@@ -57,18 +54,7 @@ public class UrlServicio {
                 shortUrl.getSlug(),
                 shortUrl.getFechaRegistro(),
                 shortUrl.getFechaModificacion(),
-                shortUrl.getVecesAccedido());
-    }
-
-    public String buscarUrl(@NonNull String slug) {
-
-        logger.info("Buscando slug: {}", slug);
-
-        Url urlOrigin= urlRepositorio.findBySlug(slug).orElseThrow(EntityNotFoundException::new);
-
-        logger.info("Url encontrada exitosamente");
-
-        return  urlOrigin.getOriginalUrl().toString();
+                shortUrl.getClicks());
     }
 
     public ArrayList<UrlRespuesta> ListarUrls() {
@@ -87,7 +73,7 @@ public class UrlServicio {
                     url.getSlug(),
                     url.getFechaRegistro(),
                     url.getFechaModificacion(),
-                    url.getVecesAccedido()));
+                    url.getClicks()));
         });
 
         return urlsList;
@@ -117,7 +103,7 @@ public class UrlServicio {
                 url.getSlug(),
                 url.getFechaRegistro(),
                 url.getFechaModificacion(),
-                url.getVecesAccedido());
+                url.getClicks());
 
     }
 

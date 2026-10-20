@@ -36,7 +36,7 @@ public class Url {
     private String fechaModificacion;
 
     @PositiveOrZero(message = "El contador de accesos no puede ser negativo")
-    private Integer vecesAccedido;
+    private Integer clicks;
 
     @PrePersist
     void onCreate() {
