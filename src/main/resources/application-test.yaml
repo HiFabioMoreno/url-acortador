@@ -9,5 +9,5 @@ spring:
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
-      ddl-aut: create-drop
+      ddl-auto: create-drop
     show-sql: true
