@@ -1,6 +1,8 @@
 package fabio.dev.url_shortener.controladores;
 
 
+import fabio.dev.url_shortener.repositorios.UrlRepositorio;
+import fabio.dev.url_shortener.servicios.RedireccionUrlServicio;
 import fabio.dev.url_shortener.servicios.UrlServicio;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,14 +14,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestController()
+@RestController
 public class RedireccionUrlControlador {
 
-    private final UrlServicio urlServicio;
+    private final RedireccionUrlServicio redireccionUrlServicio;
 
-    public RedireccionUrlControlador(UrlServicio urlServicio) {
-        this.urlServicio = urlServicio;
+    public RedireccionUrlControlador(RedireccionUrlServicio redireccionUrlServicio) {
+        this.redireccionUrlServicio = redireccionUrlServicio;
     }
 
     @Operation(
@@ -41,15 +44,14 @@ public class RedireccionUrlControlador {
             )
     })
     @GetMapping("/{slug}/")
-    public ResponseEntity<Void> redericcionar(
+    public ResponseEntity<Void> rediriccionar(
             @Parameter(
                     description = "Identificador único de la URL acortada",
                     example = "1sol4h"
             )
             @PathVariable String slug) {
 
-        String urlOriginal = urlServicio.buscarUrl(slug);
-
+        String urlOriginal = redireccionUrlServicio.buscarUrlYRegistrarClick(slug);
         return ResponseEntity
                 .status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, urlOriginal)

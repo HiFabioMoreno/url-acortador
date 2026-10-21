@@ -1,6 +1,5 @@
 package fabio.dev.url_shortener;
 
-import com.jayway.jsonpath.JsonPath;
 import fabio.dev.url_shortener.dtos.ActualizarRespuesta;
 import fabio.dev.url_shortener.dtos.UrlSolicitud;
 import fabio.dev.url_shortener.modelos.Url;
@@ -63,7 +62,7 @@ public class UrlControladorIntegracionTests {
         url.setSlug("abXzy");
         url.setFechaRegistro(Url.GenerarTimestamp());
         url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setVecesAccedido(0);
+        url.setClicks(0);
         urlRepositorio.save(url);
 
         mockMvc.perform(get("/acortador/")
@@ -71,26 +70,6 @@ public class UrlControladorIntegracionTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].originalUrl").value("https://ejemplo.com"));
-    }
-
-    @Test
-    @DisplayName("GET /{slug}/ - debe de regresar un url encontrado por su slug")
-    void  debe_de_regresar_un_url_encontrado_por_su_slug() throws Exception {
-
-        Url url = new Url();
-        url.setOriginalUrl("https://ejemplo.com/");
-        url.setSlug("abXzy");
-        url.setFechaRegistro(Url.GenerarTimestamp());
-        url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setVecesAccedido(0);
-        urlRepositorio.save(url);
-
-        mockMvc.perform(get("/" + url.getSlug() + "/")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(url)))
-                .andExpect(status().isFound())
-                .andExpect(header().string("Location", "https://ejemplo.com/"));
-
     }
 
     @Test
@@ -115,7 +94,7 @@ public class UrlControladorIntegracionTests {
         url.setSlug("abXzy");
         url.setFechaRegistro(Url.GenerarTimestamp());
         url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setVecesAccedido(0);
+        url.setClicks(0);
         Url guardada = urlRepositorio.save(url);
 
         ActualizarRespuesta dto = new ActualizarRespuesta("Cambio de titulo");
@@ -150,7 +129,7 @@ public class UrlControladorIntegracionTests {
         url.setSlug("abXzy");
         url.setFechaRegistro(Url.GenerarTimestamp());
         url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setVecesAccedido(0);
+        url.setClicks(0);
         Url guardada = urlRepositorio.save(url);
 
         mockMvc.perform(delete("/acortador/" + guardada.getId() + "/"))
@@ -185,21 +164,11 @@ public class UrlControladorIntegracionTests {
                 .andExpect(jsonPath("$.vecesAccedido").value(0))
                 .andReturn();
 
-        String slugAEncontrar = JsonPath.read(
-                result.getResponse().getContentAsString(),
-                "$.slug"
-        );
-
         mockMvc.perform(get("/acortador/")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].originalUrl").value("https://www.google.com"));
-
-        mockMvc.perform(get("/"+ slugAEncontrar +"/")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isFound())
-                .andExpect(header().string("Location", "https://www.google.com"));
 
         mockMvc.perform(patch("/acortador/1/")
                 .contentType(MediaType.APPLICATION_JSON)

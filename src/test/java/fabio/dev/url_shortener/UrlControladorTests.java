@@ -50,7 +50,7 @@ public class UrlControladorTests {
         url.setTitulo("Youtube busqueda");
         url.setFechaRegistro(LocalDateTime.now().toString());
         url.setFechaModificacion(LocalDateTime.now().toString());
-        url.setVecesAccedido(0);
+        url.setClicks(0);
 
     }
 
@@ -63,7 +63,7 @@ public class UrlControladorTests {
                 url.getSlug(),
                 url.getFechaRegistro(),
                 url.getFechaModificacion(),
-                url.getVecesAccedido()
+                url.getClicks()
         );
 
         UrlSolicitud urlSolicitud = new UrlSolicitud("https://www.google.com");
@@ -128,7 +128,7 @@ public class UrlControladorTests {
                 url.getSlug(),
                 url.getFechaRegistro(),
                 url.getFechaModificacion(),
-                url.getVecesAccedido()
+                url.getClicks()
         );
 
         when(urlServicio.actualizarShortUrl(1, urlActualizar)).thenReturn(respuesta);

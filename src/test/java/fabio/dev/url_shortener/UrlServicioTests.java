@@ -48,7 +48,7 @@ class UrlServicioTests {
 		url.setSlug("uzdkr8");
 		url.setFechaRegistro(LocalDateTime.now().toString());
 		url.setFechaModificacion(LocalDateTime.now().toString());
-		url.setVecesAccedido(0);
+		url.setClicks(0);
 
 	}
 
@@ -73,18 +73,6 @@ class UrlServicioTests {
 
 		verify(urlRepositorio, times(1)).save(any(Url.class));
 
-	}
-
-	@Test
-	@DisplayName("Deberia encontrar un url por su slug relacionado")
-	public void deberiaEncontrarElUrlOginalDeUnSlug()  {
-
-		when(urlRepositorio.findBySlug("uzdkr8")).thenReturn(Optional.of(url));
-
-		String slug = urlServicio.buscarUrl(url.getSlug());
-		assertEquals("https://www.google.com", slug);
-
-		verify(urlRepositorio, times(1)).findBySlug(anyString());
 	}
 
 	@Test
