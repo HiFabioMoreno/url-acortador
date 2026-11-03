@@ -17,7 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -48,9 +48,9 @@ public class UrlControladorTests {
         url.setOriginalUrl("https://www.google.com");
         url.setSlug("uzdkr8");
         url.setTitulo("Youtube busqueda");
-        url.setFechaRegistro(LocalDateTime.now().toString());
-        url.setFechaModificacion(LocalDateTime.now().toString());
-        url.setClicks(0);
+        url.setFechaRegistro(LocalDate.now());
+        url.setFechaModificacion(LocalDate.now());
+        url.setClicks(0L);
 
     }
 

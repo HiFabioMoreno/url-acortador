@@ -62,7 +62,7 @@ public class UrlControladorIntegracionTests {
         url.setSlug("abXzy");
         url.setFechaRegistro(Url.GenerarTimestamp());
         url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setClicks(0);
+        url.setClicks(0L);
         urlRepositorio.save(url);
 
         mockMvc.perform(get("/acortador/")
@@ -94,7 +94,7 @@ public class UrlControladorIntegracionTests {
         url.setSlug("abXzy");
         url.setFechaRegistro(Url.GenerarTimestamp());
         url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setClicks(0);
+        url.setClicks(0L);
         Url guardada = urlRepositorio.save(url);
 
         ActualizarRespuesta dto = new ActualizarRespuesta("Cambio de titulo");
@@ -129,7 +129,7 @@ public class UrlControladorIntegracionTests {
         url.setSlug("abXzy");
         url.setFechaRegistro(Url.GenerarTimestamp());
         url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setClicks(0);
+        url.setClicks(0L);
         Url guardada = urlRepositorio.save(url);
 
         mockMvc.perform(delete("/acortador/" + guardada.getId() + "/"))
@@ -161,7 +161,7 @@ public class UrlControladorIntegracionTests {
                 .andExpect(jsonPath("$.idUrl").exists())
                 .andExpect(jsonPath("$.originalUrl").value("https://www.google.com"))
                 .andExpect(jsonPath("$.slug").exists())
-                .andExpect(jsonPath("$.vecesAccedido").value(0))
+                .andExpect(jsonPath("$.vecesAccedido").value(0L))
                 .andReturn();
 
         mockMvc.perform(get("/acortador/")
