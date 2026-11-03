@@ -20,12 +20,12 @@ public class UrlRepositorioTest {
     @Autowired
     private TestEntityManager em;
 
-    private Url crearUrl(String slug, int clicks) {
+    private Url crearUrl(String slug, long clicks) {
         Url url = new Url();
         url.setSlug(slug);
         url.setOriginalUrl("https://ejemplo.com");
-        url.setFechaRegistro(LocalDate.now().toString());
-        url.setFechaModificacion(LocalDate.now().toString());
+        url.setFechaRegistro(LocalDate.now());
+        url.setFechaModificacion(LocalDate.now());
         url.setClicks(clicks);
 
         return em.persistAndFlush(url);
@@ -41,7 +41,7 @@ public class UrlRepositorioTest {
         Url actualizada = urlRepositorio.findById(url.getId()).orElseThrow();
 
         assertEquals(1, filasAfectadas);
-        assertEquals(1, actualizada.getClicks());
+        assertEquals(1L, actualizada.getClicks());
 
     }
 
@@ -57,7 +57,7 @@ public class UrlRepositorioTest {
         em.clear();
         Url actualizada = urlRepositorio.findById(url.getId()).orElseThrow();
 
-        assertEquals(3, actualizada.getClicks());
+        assertEquals(3L, actualizada.getClicks());
 
     }
 
@@ -74,9 +74,9 @@ public class UrlRepositorioTest {
         Url url = new Url();
         url.setSlug("clnSlug");
         url.setOriginalUrl("https://google.com");
-        url.setFechaRegistro(LocalDate.now().toString());
-        url.setFechaModificacion(LocalDate.now().toString());
-        url.setClicks(0);
+        url.setFechaRegistro(LocalDate.now());
+        url.setFechaModificacion(LocalDate.now());
+        url.setClicks(0L);
 
         em.persistAndFlush(url);
 
@@ -86,7 +86,7 @@ public class UrlRepositorioTest {
         urlRepositorio.incrementarClicks("domSlug");
         em.clear();
 
-        assertEquals(0, urlRepositorio.findById(url.getId()).orElseThrow().getClicks());
+        assertEquals(0L, urlRepositorio.findById(url.getId()).orElseThrow().getClicks());
 
     }
 }

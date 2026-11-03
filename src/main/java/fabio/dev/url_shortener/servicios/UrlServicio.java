@@ -41,7 +41,7 @@ public class UrlServicio {
         shortUrl.setTitulo(generadorTitulo.generar());
         shortUrl.setSlug(GeneradorUrl());
         shortUrl.setFechaModificacion(GenerarTimestamp());
-        shortUrl.setClicks(0);
+        shortUrl.setClicks(0L);
 
         urlRepositorio.save(shortUrl);
 

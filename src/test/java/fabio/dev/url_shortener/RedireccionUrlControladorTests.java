@@ -36,9 +36,9 @@ public class RedireccionUrlControladorTests {
         Url url = new Url();
         url.setSlug("1sol4h");
         url.setOriginalUrl("https://ejemplo.com");
-        url.setClicks(0);
-        url.setFechaRegistro(LocalDate.now().toString());
-        url.setFechaModificacion(LocalDate.now().toString());
+        url.setClicks(0L);
+        url.setFechaRegistro(LocalDate.now());
+        url.setFechaModificacion(LocalDate.now());
 
         urlRepositorio.save(url);
 
@@ -46,7 +46,7 @@ public class RedireccionUrlControladorTests {
                 .andExpect(status().isFound())
                 .andExpect(header().string(HttpHeaders.LOCATION, "https://ejemplo.com"));
 
-        assertEquals(1, urlRepositorio.findBySlug("1sol4h").orElseThrow().getClicks());
+        assertEquals(1L, urlRepositorio.findBySlug("1sol4h").orElseThrow().getClicks());
 
     }
 

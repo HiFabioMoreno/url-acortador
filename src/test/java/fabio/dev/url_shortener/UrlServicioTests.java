@@ -16,7 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -46,9 +46,9 @@ class UrlServicioTests {
 		url.setId(1);
 		url.setOriginalUrl("https://www.google.com");
 		url.setSlug("uzdkr8");
-		url.setFechaRegistro(LocalDateTime.now().toString());
-		url.setFechaModificacion(LocalDateTime.now().toString());
-		url.setClicks(0);
+		url.setFechaRegistro(LocalDate.now());
+		url.setFechaModificacion(LocalDate.now());
+		url.setClicks(0L);
 
 	}
 
@@ -59,7 +59,7 @@ class UrlServicioTests {
 		when(generadorTitulo.generar()).thenReturn("Enlace1");
 		when(urlRepositorio.save(any(Url.class))).thenAnswer(i -> {
 				Url u = i.getArgument(0);
-				u.setFechaRegistro(LocalDateTime.now().toString());
+				u.setFechaRegistro(LocalDate.now());
 				return u;
 		});
 
@@ -69,7 +69,7 @@ class UrlServicioTests {
 		assertEquals("Enlace1",nuevaUrl.titulo());
 		assertNotNull(nuevaUrl.fechaRegistro());
 		assertNotNull(nuevaUrl.slug());
-		assertEquals(0, nuevaUrl.vecesAccedido());
+		assertEquals(0L, nuevaUrl.vecesAccedido());
 
 		verify(urlRepositorio, times(1)).save(any(Url.class));
 

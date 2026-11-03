@@ -13,7 +13,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,9 +40,9 @@ public class RedireccionUrlServicioTests {
         url.setId(1);
         url.setOriginalUrl("https://www.google.com");
         url.setSlug("uzdkr8");
-        url.setFechaRegistro(LocalDateTime.now().toString());
-        url.setFechaModificacion(LocalDateTime.now().toString());
-        url.setClicks(0);
+        url.setFechaRegistro(LocalDate.now());
+        url.setFechaModificacion(LocalDate.now());
+        url.setClicks(0L);
     }
 
     @Test
