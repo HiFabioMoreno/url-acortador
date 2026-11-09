@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UrlRepositorio extends JpaRepository<Url,Integer> {
@@ -14,5 +15,9 @@ public interface UrlRepositorio extends JpaRepository<Url,Integer> {
     @Modifying
     @Query("UPDATE Url u SET u.clicks = u.clicks + 1 WHERE u.slug = ?1")
     int incrementarClicks(@Param("slug")String slug);
+
+    List<Url> findAllByUsuario_Id(Long usuarioId);
+
+    Optional<Url> findByIdAndUsuario_Id(Integer id, Long usuarioId);
 
 }

@@ -1,0 +1,610 @@
+{
+  "info": {
+    "name": "URL Shortener - Auth + CRUD",
+    "description": "Flujo end-to-end: registro e inicio de sesion de usuario en Keycloak, y CRUD de URLs acortadas contra la API Spring Boot.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "keycloakUrl",
+      "value": "http://localhost:8180"
+    },
+    {
+      "key": "realm",
+      "value": "url-shortener"
+    },
+    {
+      "key": "adminRealm",
+      "value": "master"
+    },
+    {
+      "key": "clientId",
+      "value": "url-shortener-client"
+    },
+    {
+      "key": "adminUser",
+      "value": "admin"
+    },
+    {
+      "key": "adminPassword",
+      "value": "admin"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "testUsername",
+      "value": ""
+    },
+    {
+      "key": "testPassword",
+      "value": "Test1234!"
+    },
+    {
+      "key": "testEmail",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "roleId",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "urlId",
+      "value": ""
+    },
+    {
+      "key": "slug",
+      "value": ""
+    },
+    {
+      "key": "originalUrl",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Autenticacion",
+      "item": [
+        {
+          "name": "Obtener token de administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Admin token 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token presente', function () { pm.expect(body.access_token).to.be.a('string').and.not.empty; });",
+                  "pm.collectionVariables.set('adminToken', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "admin-cli"
+                },
+                {
+                  "key": "username",
+                  "value": "{{adminUser}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{adminPassword}}"
+                }
+              ]
+            },
+            "url": "{{keycloakUrl}}/realms/{{adminRealm}}/protocol/openid-connect/token"
+          }
+        },
+        {
+          "name": "Registro de usuario",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const suffix = Date.now();",
+                  "pm.collectionVariables.set('testUsername', 'user_' + suffix);",
+                  "pm.collectionVariables.set('testEmail', 'user_' + suffix + '@example.com');",
+                  "pm.collectionVariables.set('testPassword', 'Test1234!');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Usuario registrado (201)', function () { pm.response.to.have.status(201); });",
+                  "const location = pm.response.headers.get('Location');",
+                  "pm.test('Location con id de usuario', function () { pm.expect(location).to.be.a('string'); });",
+                  "if (location) {",
+                  "  const id = location.split('/').pop();",
+                  "  pm.collectionVariables.set('userId', id);",
+                  "  pm.test('userId capturado', function () { pm.expect(id).to.be.a('string').and.not.empty; });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{testUsername}}\",\n  \"email\": \"{{testEmail}}\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"enabled\": true,\n  \"emailVerified\": true,\n  \"credentials\": [\n    { \"type\": \"password\", \"value\": \"{{testPassword}}\", \"temporary\": false }\n  ]\n}"
+            },
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users"
+          }
+        },
+        {
+          "name": "Obtener rol USER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rol USER 200', function () { pm.response.to.have.status(200); });",
+                  "const role = pm.response.json();",
+                  "pm.test('Rol USER existe', function () { pm.expect(role.name).to.eql('USER'); });",
+                  "pm.collectionVariables.set('roleId', role.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/roles/USER"
+          }
+        },
+        {
+          "name": "Asignar rol USER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rol asignado (204)', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[{\n  \"id\": \"{{roleId}}\",\n  \"name\": \"USER\"\n}]"
+            },
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users/{{userId}}/role-mappings/realm"
+          }
+        },
+        {
+          "name": "Inicio de sesion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token presente', function () { pm.expect(body.access_token).to.be.a('string').and.not.empty; });",
+                  "pm.test('token_type Bearer', function () { pm.expect(body.token_type).to.eql('Bearer'); });",
+                  "pm.collectionVariables.set('token', body.access_token);",
+                  "function b64urlDecode(s) {",
+                  "  s = s.replace(/-/g, '+').replace(/_/g, '/');",
+                  "  while (s.length % 4) { s += '='; }",
+                  "  return atob(s);",
+                  "}",
+                  "const claims = JSON.parse(b64urlDecode(body.access_token.split('.')[1]));",
+                  "pm.test('Token pertenece al usuario registrado', function () { pm.expect(claims.preferred_username).to.eql(pm.collectionVariables.get('testUsername')); });",
+                  "pm.test('Token incluye rol USER', function () { pm.expect(claims.realm_access.roles).to.include('USER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{clientId}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{testUsername}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{testPassword}}"
+                }
+              ]
+            },
+            "url": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token"
+          }
+        }
+      ]
+    },
+    {
+      "name": "CRUD URLs",
+      "item": [
+        {
+          "name": "Crear URL acortada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('originalUrl', 'https://example.com/postman/' + pm.collectionVariables.get('testUsername'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Creacion 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Respuesta con id y slug', function () {",
+                  "  pm.expect(body.idUrl).to.be.a('number');",
+                  "  pm.expect(body.slug).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('URL original coincide', function () { pm.expect(body.originalUrl).to.eql(pm.collectionVariables.get('originalUrl')); });",
+                  "pm.collectionVariables.set('urlId', body.idUrl);",
+                  "pm.collectionVariables.set('slug', body.slug);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"{{originalUrl}}\"\n}"
+            },
+            "url": "{{baseUrl}}/acortador/"
+          }
+        },
+        {
+          "name": "Listar URLs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listado 200', function () { pm.response.to.have.status(200); });",
+                  "const urls = pm.response.json();",
+                  "pm.test('Respuesta es arreglo', function () { pm.expect(urls).to.be.an('array'); });",
+                  "const urlId = pm.collectionVariables.get('urlId');",
+                  "const found = urls.find(u => String(u.idUrl) === String(urlId));",
+                  "pm.test('Contiene la URL creada', function () { pm.expect(found).to.be.an('object'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/acortador/"
+          }
+        },
+        {
+          "name": "Actualizar URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Actualizacion 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Titulo actualizado', function () { pm.expect(body.titulo).to.eql('Titulo actualizado por Postman'); });",
+                  "pm.test('Mismo id', function () { pm.expect(String(body.idUrl)).to.eql(String(pm.collectionVariables.get('urlId'))); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Titulo actualizado por Postman\"\n}"
+            },
+            "url": "{{baseUrl}}/acortador/{{urlId}}/"
+          }
+        },
+        {
+          "name": "Redirigir por slug",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Redireccion 302', function () { pm.response.to.have.status(302); });",
+                  "pm.test('Location apunta a la URL original', function () {",
+                  "  pm.expect(pm.response.headers.get('Location')).to.eql(pm.collectionVariables.get('originalUrl'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{slug}}/"
+          }
+        },
+        {
+          "name": "Verificar click registrado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listado 200', function () { pm.response.to.have.status(200); });",
+                  "const urls = pm.response.json();",
+                  "const urlId = pm.collectionVariables.get('urlId');",
+                  "const found = urls.find(u => String(u.idUrl) === String(urlId));",
+                  "pm.test('vecesAccedido incrementado', function () { pm.expect(found.vecesAccedido).to.be.at.least(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/acortador/"
+          }
+        },
+        {
+          "name": "Eliminar URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Eliminacion 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/acortador/{{urlId}}/"
+          }
+        },
+        {
+          "name": "Verificar eliminacion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listado 200', function () { pm.response.to.have.status(200); });",
+                  "const urls = pm.response.json();",
+                  "const urlId = pm.collectionVariables.get('urlId');",
+                  "const found = urls.find(u => String(u.idUrl) === String(urlId));",
+                  "pm.test('La URL ya no existe', function () { pm.expect(found).to.be.undefined; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/acortador/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Casos negativos",
+      "item": [
+        {
+          "name": "Crear URL invalida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('URL invalida rechazada (400)', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"ftp://no-es-valida\"\n}"
+            },
+            "url": "{{baseUrl}}/acortador/"
+          }
+        },
+        {
+          "name": "Acceso sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Sin token rechazado (401)', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/acortador/"
+          }
+        },
+        {
+          "name": "Actualizar URL inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Inexistente devuelve 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"No existe\"\n}"
+            },
+            "url": "{{baseUrl}}/acortador/999999/"
+          }
+        }
+      ]
+    }
+  ]
+}

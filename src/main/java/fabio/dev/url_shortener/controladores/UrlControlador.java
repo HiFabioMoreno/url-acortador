@@ -11,6 +11,9 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +24,7 @@ import java.util.ArrayList;
 @Validated
 public class UrlControlador {
 
-    private final UrlServicio urlServicio;
+    private UrlServicio urlServicio;
 
     public UrlControlador(UrlServicio urlServicio) {
         this.urlServicio = urlServicio;
@@ -42,8 +45,9 @@ public class UrlControlador {
             )
     })
     @GetMapping("/")
-    public ResponseEntity<ArrayList<UrlRespuesta>> ListarUrls() {
-        return ResponseEntity.ok(urlServicio.ListarUrls());
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<ArrayList<UrlRespuesta>> ListarUrls(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(urlServicio.ListarUrls(jwt));
     }
 
     @Operation(
@@ -65,8 +69,9 @@ public class UrlControlador {
             )
     })
     @PostMapping("/")
-    public ResponseEntity<UrlRespuesta> registrarUrl(@Valid @RequestBody UrlSolicitud urlSolicitud) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(urlServicio.crearShortUrl(urlSolicitud));
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<UrlRespuesta> registrarUrl(@Valid @RequestBody UrlSolicitud urlSolicitud, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(urlServicio.crearShortUrl(urlSolicitud, jwt));
     }
 
     @Operation(
@@ -92,8 +97,9 @@ public class UrlControlador {
             )
     })
     @PatchMapping("/{id}/")
-    public ResponseEntity<UrlRespuesta> actualizarUrl(@PathVariable @Positive Integer id, @Valid @RequestBody ActualizarRespuesta dto) {
-        return ResponseEntity.ok(urlServicio.actualizarShortUrl(id,dto));
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<UrlRespuesta> actualizarUrl(@PathVariable @Positive Integer id, @Valid @RequestBody ActualizarRespuesta dto, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(urlServicio.actualizarShortUrl(id, dto, jwt));
     }
 
     @Operation(
@@ -115,8 +121,9 @@ public class UrlControlador {
             )
     })
     @DeleteMapping("/{id}/")
-    public ResponseEntity<Void> eliminarUrl(@PathVariable @Positive Integer id) {
-        urlServicio.EliminarUrl(id);
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Void> eliminarUrl(@PathVariable @Positive Integer id, @AuthenticationPrincipal Jwt jwt) {
+        urlServicio.EliminarUrl(id, jwt);
         return ResponseEntity.noContent().build();
     }
 
