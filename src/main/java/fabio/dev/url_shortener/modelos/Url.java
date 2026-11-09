@@ -2,9 +2,11 @@ package fabio.dev.url_shortener.modelos;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -18,6 +20,10 @@ public class Url {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+
     @NotBlank(message = "El url no puede estar vacio")
     @Column(unique = true, length = 2048)
     private String originalUrl;
@@ -30,17 +36,19 @@ public class Url {
     private String titulo;
 
     @Column(name = "fechaRegistro", nullable = false, updatable = false)
-    private String fechaRegistro;
+    private LocalDate fechaRegistro;
 
     @Column(name = "fechaModificacion", nullable = false)
-    private String fechaModificacion;
+    private LocalDate fechaModificacion;
 
     @PositiveOrZero(message = "El contador de accesos no puede ser negativo")
-    private Integer clicks;
+    private Long clicks = 0L;
 
     @PrePersist
     void onCreate() {
-        this.fechaRegistro = GenerarTimestamp();
+        LocalDate ahora = GenerarTimestamp();
+        this.fechaRegistro = ahora;
+        this.fechaModificacion = ahora;
     }
 
     @PreUpdate
@@ -48,11 +56,8 @@ public class Url {
         this.fechaModificacion = GenerarTimestamp();
     }
 
-    public static String GenerarTimestamp(){
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-        String fechaFormateada = LocalDateTime.now().format(formatter);
-
-        return fechaFormateada;
+    public static LocalDate GenerarTimestamp(){
+        return LocalDate.now();
     }
 
     public static String GeneradorUrl(){

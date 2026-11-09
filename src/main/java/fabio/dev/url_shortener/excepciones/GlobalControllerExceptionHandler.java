@@ -8,6 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -128,6 +132,35 @@ public class GlobalControllerExceptionHandler {
                     .build();
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorRespuesta> handleAccessDeniedException(AccessDeniedException ex) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean autenticado = authentication != null
+                && authentication.isAuthenticated()
+                && !(authentication instanceof AnonymousAuthenticationToken);
+
+        HttpStatus status = autenticado ? HttpStatus.FORBIDDEN : HttpStatus.UNAUTHORIZED;
+        ErrorCodes errorCode = autenticado ? ErrorCodes.ACCESO_DENEGADO : ErrorCodes.NO_AUTENTICADO;
+        String mensaje = autenticado
+                ? "No tiene permisos para acceder a este recurso"
+                : "Se requiere autenticacion para acceder a este recurso";
+
+        log.warn("Acceso denegado ({}): {}", status.value(), ex.getMessage());
+
+        ErrorRespuesta error = ErrorRespuesta.builder()
+                .timestamp(LocalDateTime.now())
+                .status(status.value())
+                .error(status.getReasonPhrase())
+                .errorCode(String.valueOf(errorCode))
+                .mensaje(mensaje)
+                .mensajeDesarrollador(ex.getClass().getSimpleName() + ": " + ex.getMessage())
+                .path(request.getRequestId())
+                .build();
+
+        return ResponseEntity.status(status).body(error);
     }
 
     @ExceptionHandler(Exception.class)

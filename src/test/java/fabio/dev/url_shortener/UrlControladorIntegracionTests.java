@@ -3,30 +3,46 @@ package fabio.dev.url_shortener;
 import fabio.dev.url_shortener.dtos.ActualizarRespuesta;
 import fabio.dev.url_shortener.dtos.UrlSolicitud;
 import fabio.dev.url_shortener.modelos.Url;
+import fabio.dev.url_shortener.modelos.Usuario;
 import fabio.dev.url_shortener.repositorios.UrlRepositorio;
+import fabio.dev.url_shortener.repositorios.UsuarioRepositorio;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Testcontainers
 @AutoConfigureMockMvc
 @Transactional
 public class UrlControladorIntegracionTests {
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
 
     @Autowired
     private MockMvc mockMvc;
@@ -35,7 +51,30 @@ public class UrlControladorIntegracionTests {
     private UrlRepositorio urlRepositorio;
 
     @Autowired
+    private UsuarioRepositorio usuarioRepositorio;
+
+    @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
+
+    private Usuario crearUsuario(String externalId) {
+        return usuarioRepositorio.findByExternalId(externalId)
+                .orElseGet(() -> usuarioRepositorio.save(
+                        new Usuario(externalId, externalId + "@test.com")));
+    }
+
+    private Url crearUrl(String slug) {
+        Url url = new Url();
+        url.setOriginalUrl("https://ejemplo.com");
+        url.setSlug(slug);
+        url.setUsuario(crearUsuario("user-123"));
+        url.setFechaRegistro(Url.GenerarTimestamp());
+        url.setFechaModificacion(Url.GenerarTimestamp());
+        url.setClicks(0L);
+        return urlRepositorio.save(url);
+    }
 
     @Test
     @DisplayName("POST /acortador/ - debe crear una URL y retornar 201")
@@ -44,6 +83,8 @@ public class UrlControladorIntegracionTests {
         UrlSolicitud solicitud = new UrlSolicitud("https://www.google.com");
 
         mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(solicitud)))
                 .andExpect(status().isCreated())
@@ -57,19 +98,44 @@ public class UrlControladorIntegracionTests {
     @DisplayName("GET /acortador/ - debe retornar lista de URLs")
     void listarUrls_debeRetornarLista() throws Exception {
 
-        Url url = new Url();
-        url.setOriginalUrl("https://ejemplo.com");
-        url.setSlug("abXzy");
-        url.setFechaRegistro(Url.GenerarTimestamp());
-        url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setClicks(0);
-        urlRepositorio.save(url);
+        crearUrl("abXzy");
 
         mockMvc.perform(get("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].originalUrl").value("https://ejemplo.com"));
+    }
+
+    @Test
+    @DisplayName("Un usuario no puede listar, actualizar ni eliminar urls de otro usuario")
+    void usuarioNoPuedeAccederAUrlsDeOtroUsuario() throws Exception {
+
+        Url urlDeOtroUsuario = crearUrl("abXzy");
+
+        mockMvc.perform(get("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-456"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+
+        ActualizarRespuesta dto = new ActualizarRespuesta("Intento de cambio");
+
+        mockMvc.perform(patch("/acortador/" + urlDeOtroUsuario.getId() + "/")
+                        .with(jwt().jwt(j -> j.subject("user-456"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/acortador/" + urlDeOtroUsuario.getId() + "/")
+                        .with(jwt().jwt(j -> j.subject("user-456"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isNotFound());
+
+        assertTrue(urlRepositorio.existsById(urlDeOtroUsuario.getId()));
     }
 
     @Test
@@ -79,6 +145,8 @@ public class UrlControladorIntegracionTests {
         String bodyInvalido = "{\"url\": \"\"}";
 
         mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(bodyInvalido))
                 .andExpect(status().isBadRequest());
@@ -89,17 +157,13 @@ public class UrlControladorIntegracionTests {
     @DisplayName("PATCH /acortador/{id}/ - debe actualizar y retornar 200")
     void actualizarUrl_debeRetornar200() throws Exception {
 
-        Url url = new Url();
-        url.setOriginalUrl("https://ejemplo.com");
-        url.setSlug("abXzy");
-        url.setFechaRegistro(Url.GenerarTimestamp());
-        url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setClicks(0);
-        Url guardada = urlRepositorio.save(url);
+        Url guardada = crearUrl("abXzy");
 
         ActualizarRespuesta dto = new ActualizarRespuesta("Cambio de titulo");
 
         mockMvc.perform(patch("/acortador/" + guardada.getId() + "/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk())
@@ -108,15 +172,17 @@ public class UrlControladorIntegracionTests {
 
 
     @Test
-    @DisplayName("PATCH /acortador/{id}/ - id inexistente debe retornar 500 o 404")
+    @DisplayName("PATCH /acortador/{id}/ - id inexistente debe retornar 404")
     void actualizarUrl_conIdInexistente_debeRetornarError() throws Exception {
 
         ActualizarRespuesta dto = new ActualizarRespuesta("Cambio de titulo");
 
         mockMvc.perform(patch("/acortador/9999/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().is5xxServerError());
+                .andExpect(status().isNotFound());
     }
 
 
@@ -124,15 +190,13 @@ public class UrlControladorIntegracionTests {
     @DisplayName("DELETE /acortador/{id}/ - debe retornar 204")
     void eliminarUrl_debeRetornar204() throws Exception {
 
-        Url url = new Url();
-        url.setOriginalUrl("https://ejemplo.com");
-        url.setSlug("abXzy");
-        url.setFechaRegistro(Url.GenerarTimestamp());
-        url.setFechaModificacion(Url.GenerarTimestamp());
-        url.setClicks(0);
-        Url guardada = urlRepositorio.save(url);
+        Url guardada = crearUrl("abXzy");
 
-        mockMvc.perform(delete("/acortador/" + guardada.getId() + "/"))
+        mockMvc.perform(delete("/acortador/" + guardada.getId() + "/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON))
+
                 .andExpect(status().isNoContent());
 
         assertFalse(urlRepositorio.existsById(guardada.getId()));
@@ -142,7 +206,10 @@ public class UrlControladorIntegracionTests {
     @Test
     @DisplayName("DELETE /acortador/{id}/ - id inexistente debe retornar error")
     void eliminarUrl_conIdInexistente_debeRetornarError() throws Exception {
-        mockMvc.perform(delete("/acortador/9999/"))
+        mockMvc.perform(delete("/acortador/9999/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
     }
 
@@ -155,23 +222,31 @@ public class UrlControladorIntegracionTests {
         ActualizarRespuesta actualizarUrl = new ActualizarRespuesta("Cambio de titulo");
 
         MvcResult result = mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(solicitud)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.idUrl").exists())
                 .andExpect(jsonPath("$.originalUrl").value("https://www.google.com"))
                 .andExpect(jsonPath("$.slug").exists())
-                .andExpect(jsonPath("$.vecesAccedido").value(0))
+                .andExpect(jsonPath("$.vecesAccedido").value(0L))
                 .andReturn();
 
+        int idUrl = objectMapper.readTree(result.getResponse().getContentAsString()).get("idUrl").asInt();
+
         mockMvc.perform(get("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].originalUrl").value("https://www.google.com"));
 
-        mockMvc.perform(patch("/acortador/1/")
-                .contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(patch("/acortador/" + idUrl + "/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(actualizarUrl)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idUrl").exists())
@@ -179,10 +254,12 @@ public class UrlControladorIntegracionTests {
                 .andExpect(jsonPath("$.slug").exists())
                 .andExpect(jsonPath("$.fechaModificacion").exists());
 
-        mockMvc.perform(delete("/acortador/1/"))
+        mockMvc.perform(delete("/acortador/" + idUrl + "/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isNoContent());
 
-        assertFalse(urlRepositorio.existsById(1));
+        assertFalse(urlRepositorio.existsById(idUrl));
     }
 
     @Test
@@ -190,6 +267,8 @@ public class UrlControladorIntegracionTests {
     void registrarUrl_debePermitirOrigenDelFrontend() throws Exception {
 
         mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Origin", "http://localhost:4200")
                         .content(objectMapper.writeValueAsString(new UrlSolicitud("https://www.google.com"))))
