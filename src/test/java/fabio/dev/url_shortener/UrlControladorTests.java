@@ -1,5 +1,6 @@
 package fabio.dev.url_shortener;
 
+import fabio.dev.url_shortener.config.SecurityConfig;
 import fabio.dev.url_shortener.controladores.UrlControlador;
 import fabio.dev.url_shortener.dtos.ActualizarRespuesta;
 import fabio.dev.url_shortener.dtos.UrlRespuesta;
@@ -12,19 +13,27 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UrlControlador.class)
+@Import(SecurityConfig.class)
 public class UrlControladorTests {
 
     @Autowired
@@ -35,6 +44,9 @@ public class UrlControladorTests {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     private Url url;
 
@@ -55,6 +67,52 @@ public class UrlControladorTests {
     }
 
     @Test
+    void listarUrls_DebeRetornarLasUrlsDelUsuarioAutenticado() throws Exception {
+
+        UrlRespuesta respuesta = new UrlRespuesta(
+                url.getId(),
+                url.getOriginalUrl(),
+                url.getTitulo(),
+                url.getSlug(),
+                url.getFechaRegistro(),
+                url.getFechaModificacion(),
+                url.getClicks()
+        );
+
+        when(urlServicio.ListarUrls(any(Jwt.class))).thenReturn(new ArrayList<>(List.of(respuesta)));
+
+        mockMvc.perform(get("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].slug").value("uzdkr8"))
+                .andExpect(jsonPath("$[0].originalUrl").value("https://www.google.com"));
+
+        verify(urlServicio, times(1)).ListarUrls(any(Jwt.class));
+    }
+
+    @Test
+    void registrarUrl_usuarioNoAutenticado_DeberRetornar401() throws Exception {
+
+        UrlRespuesta respuesta = new UrlRespuesta(
+                url.getId(),
+                url.getOriginalUrl(),
+                url.getTitulo(),
+                url.getSlug(),
+                url.getFechaRegistro(),
+                url.getFechaModificacion(),
+                url.getClicks()
+        );
+
+        mockMvc.perform(post("/acortador/")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(respuesta)))
+                .andExpect(status().isUnauthorized());
+
+        verify(urlServicio, never()).crearShortUrl(any(UrlSolicitud.class), any(Jwt.class));
+    }
+
+    @Test
     void registrarUrl_DebeRetornar201ConUrlCreada() throws Exception {
         UrlRespuesta respuesta = new UrlRespuesta(
                 url.getId(),
@@ -68,16 +126,18 @@ public class UrlControladorTests {
 
         UrlSolicitud urlSolicitud = new UrlSolicitud("https://www.google.com");
 
-        when(urlServicio.crearShortUrl(any(UrlSolicitud.class))).thenReturn(respuesta);
+        when(urlServicio.crearShortUrl(any(UrlSolicitud.class), any(Jwt.class))).thenReturn(respuesta);
 
         mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(urlSolicitud)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.slug").value("uzdkr8"))
                 .andExpect(jsonPath("$.originalUrl").value("https://www.google.com"));
 
-        verify(urlServicio, times(1)).crearShortUrl(any(UrlSolicitud.class));
+        verify(urlServicio, times(1)).crearShortUrl(any(UrlSolicitud.class), any(Jwt.class));
     }
 
     @Test
@@ -90,6 +150,8 @@ public class UrlControladorTests {
             """;
 
         mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
@@ -106,6 +168,8 @@ public class UrlControladorTests {
         String body = "";
 
         mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
@@ -131,9 +195,11 @@ public class UrlControladorTests {
                 url.getClicks()
         );
 
-        when(urlServicio.actualizarShortUrl(1, urlActualizar)).thenReturn(respuesta);
+        when(urlServicio.actualizarShortUrl(eq(1), eq(urlActualizar), any(Jwt.class))).thenReturn(respuesta);
 
         mockMvc.perform(patch("/acortador/1/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(urlActualizar)))
                 .andExpect(status().isOk())
@@ -144,17 +210,21 @@ public class UrlControladorTests {
     @Test
     void eliminarUrl_DebeRetornar200ConUrlEliminada() throws Exception {
 
-        doNothing().when(urlServicio).EliminarUrl(1);
-        mockMvc.perform(delete("/acortador/1/"))
+        doNothing().when(urlServicio).EliminarUrl(eq(1), any(Jwt.class));
+        mockMvc.perform(delete("/acortador/1/")
+                .with(jwt().jwt(j -> j.subject("user-123"))
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void eliminarUrl_CuandoNoExiste_DebeRetornar404() throws Exception {
         doThrow(new EntityNotFoundException("URL con id 99 no existe"))
-                .when(urlServicio).EliminarUrl(99);
+                .when(urlServicio).EliminarUrl(eq(99), any(Jwt.class));
 
-        mockMvc.perform(delete("/acortador/99/"))
+        mockMvc.perform(delete("/acortador/99/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.errorCode").value("URL_NO_ENCONTRADA"))
