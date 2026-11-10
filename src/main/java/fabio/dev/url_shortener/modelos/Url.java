@@ -14,6 +14,10 @@ import java.util.Collections;
 
 @Data
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(
+        name = "uk_url_usuario_original_url",
+        columnNames = {"usuario_id", "original_url"}
+))
 public class Url {
 
     @Id
@@ -25,7 +29,7 @@ public class Url {
     private Usuario usuario;
 
     @NotBlank(message = "El url no puede estar vacio")
-    @Column(unique = true, length = 2048)
+    @Column(length = 2048)
     private String originalUrl;
 
     @NotBlank(message = "El slug no puede estar vacio")

@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -161,6 +162,23 @@ public class GlobalControllerExceptionHandler {
                 .build();
 
         return ResponseEntity.status(status).body(error);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorRespuesta> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        log.warn("Violacion de integridad de datos: {}", ex.getMessage());
+
+        ErrorRespuesta error = ErrorRespuesta.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .errorCode(String.valueOf(ErrorCodes.URL_DUPLICADA))
+                .mensaje("El recurso ya existe o viola una restriccion de unicidad")
+                .mensajeDesarrollador("Violacion de integridad de datos: " + ex.getMostSpecificCause().getMessage())
+                .path(request.getRequestId())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     @ExceptionHandler(Exception.class)
