@@ -3,19 +3,17 @@ package fabio.dev.url_shortener.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -23,44 +21,31 @@ import java.util.stream.Collectors;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain FilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
             .cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(
-                    authorizeRequests -> authorizeRequests
-                            .requestMatchers(HttpMethod.GET,"/{slug}/").permitAll()
-                            .requestMatchers("/acortador/**").authenticated()
-                            .anyRequest().denyAll()
-
-            ).oauth2ResourceServer(oauth -> oauth
-                    .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())));
+            .csrf(csrf -> csrf.ignoringRequestMatchers(PathPatternRequestMatcher.pathPattern("/registro/")))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            .authorizeHttpRequests(authorizeRequests -> authorizeRequests
+                    .requestMatchers(HttpMethod.POST, "/registro/").permitAll()
+                    .requestMatchers("/acortador/**").hasRole("USER")
+                    .requestMatchers(HttpMethod.GET, "/{slug}/").permitAll()
+                    .anyRequest().denyAll()
+            )
+            .formLogin(Customizer.withDefaults())
+            .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
+            .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
+                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                PathPatternRequestMatcher.pathPattern("/acortador/**")
+            ));
 
         return http.build();
     }
 
-    @SuppressWarnings("unchecked")
-    private JwtAuthenticationConverter jwtAuthConverter() {
-
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-
-        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-
-            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-
-            if (realmAccess == null || realmAccess.get("roles") == null) {
-                return List.of();
-            }
-            Collection<String> roles = (Collection<String>) realmAccess.get("roles");
-
-            return roles.stream()
-                    .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
-                    .collect(Collectors.toList());
-        });
-
-        return converter;
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
 }

@@ -19,8 +19,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.*;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.SliceImpl;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -35,6 +37,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UrlServicioTests {
+
+	private static final String EMAIL = "example@gmail.com";
 
 	@Mock
 	private UrlRepositorio urlRepositorio;
@@ -52,19 +56,15 @@ class UrlServicioTests {
 
 	private Usuario usuario;
 
-	private Jwt jwt;
-
 	@BeforeEach
 	void setUp() {
 
-		usuario = new Usuario("user-123", "user@test.com");
+		usuario = new Usuario();
 		usuario.setId(10L);
-
-		jwt = Jwt.withTokenValue("token")
-				.header("alg", "none")
-				.subject("user-123")
-				.claim("email", "user@test.com")
-				.build();
+		usuario.setEmail(EMAIL);
+		usuario.setPassword("password");
+		usuario.setRole("ROLE_USER");
+		usuario.setEnabled(true);
 
 		url = new Url();
 		url.setId(1);
@@ -79,9 +79,9 @@ class UrlServicioTests {
 
 	@Test
 	@DisplayName("Deberia guardar y acortar exitosamente un url asignado al usuario autenticado")
-	public void deberiaGuardarUrlExistosamente()  {
+	public void deberiaGuardarUrlExistosamente() {
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(generadorTitulo.generar()).thenReturn("Enlace1");
 		when(urlRepositorio.save(any(Url.class))).thenAnswer(i -> {
 				Url u = i.getArgument(0);
@@ -89,10 +89,10 @@ class UrlServicioTests {
 				return u;
 		});
 
-		UrlRespuesta nuevaUrl = urlServicio.crearShortUrl(new UrlSolicitud("https://www.google.com"), jwt);
+		UrlRespuesta nuevaUrl = urlServicio.crearShortUrl(new UrlSolicitud("https://www.google.com"), EMAIL);
 
-		assertEquals("https://www.google.com",nuevaUrl.originalUrl());
-		assertEquals("Enlace1",nuevaUrl.titulo());
+		assertEquals("https://www.google.com", nuevaUrl.originalUrl());
+		assertEquals("Enlace1", nuevaUrl.titulo());
 		assertNotNull(nuevaUrl.fechaRegistro());
 		assertNotNull(nuevaUrl.fechaModificacion());
 		assertNotNull(nuevaUrl.slug());
@@ -104,16 +104,16 @@ class UrlServicioTests {
 
 	@Test
 	@DisplayName("Deberia listar solo los urls del usuario autenticado aplicando el pageable")
-	public void deberiaMostrarTodosLosUrlsGuardadosExitosamente(){
+	public void deberiaMostrarTodosLosUrlsGuardadosExitosamente() {
 
 		List<Url> urlsMock = List.of(url);
 		Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "titulo"));
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findAllByUsuario_Id(usuario.getId(), pageable))
 				.thenReturn(new SliceImpl<>(urlsMock));
 
-		ArrayList<UrlRespuesta> urls = urlServicio.ListarUrls(jwt, pageable);
+		ArrayList<UrlRespuesta> urls = urlServicio.ListarUrls(EMAIL, pageable);
 
 		assertEquals(1, urls.size());
 		assertEquals("https://www.google.com", urls.get(0).originalUrl());
@@ -127,13 +127,13 @@ class UrlServicioTests {
 	@DisplayName("Deberia propagar el orden descendente al repositorio")
 	public void deberiaListarUrlsEnOrdenDescendente() {
 
-		Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC , "titulo"));
+		Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "titulo"));
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findAllByUsuario_Id(eq(usuario.getId()), any(Pageable.class)))
 				.thenReturn(new SliceImpl<>(List.of(url)));
 
-		urlServicio.ListarUrls(jwt, pageable);
+		urlServicio.ListarUrls(EMAIL, pageable);
 
 		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 		verify(urlRepositorio).findAllByUsuario_Id(eq(usuario.getId()), pageableCaptor.capture());
@@ -145,11 +145,11 @@ class UrlServicioTests {
 	@DisplayName("Deberia actualizar el titulo exitosamente")
 	public void deberiaActualizarElTituloExistosamente() {
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findByIdAndUsuario_Id(1, usuario.getId())).thenReturn(Optional.of(this.url));
 
 		UrlRespuesta urlRespuesta = urlServicio.actualizarShortUrl(
-				1, new ActualizarRespuesta( "Google Home"), jwt
+				1, new ActualizarRespuesta("Google Home"), EMAIL
 		);
 
 		assertEquals("Google Home", urlRespuesta.titulo());
@@ -164,7 +164,7 @@ class UrlServicioTests {
 	public void deberiaDarInvalidInputExceptionPorDtoNullActualizar() {
 
 		InvalidInputException err = assertThrows(InvalidInputException.class,
-				() -> urlServicio.actualizarShortUrl(1, null, jwt));
+				() -> urlServicio.actualizarShortUrl(1, null, EMAIL));
 
 		assertEquals("La solicitud no puede estar vacia", err.getMessage());
 		verify(urlRepositorio, never()).findByIdAndUsuario_Id(anyInt(), anyLong());
@@ -176,11 +176,11 @@ class UrlServicioTests {
 	@DisplayName("Deberia dar EntityNotFoundException al actualizar un url inexistente")
 	public void deberiaDarEntityNotFoundExceptionAlActualizarUrlInexistente() {
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findByIdAndUsuario_Id(999, usuario.getId())).thenReturn(Optional.empty());
 
 		EntityNotFoundException err = assertThrows(EntityNotFoundException.class,
-				() -> urlServicio.actualizarShortUrl(999, new ActualizarRespuesta("Titulo"), jwt));
+				() -> urlServicio.actualizarShortUrl(999, new ActualizarRespuesta("Titulo"), EMAIL));
 
 		assertEquals("El url no existe", err.getMessage());
 
@@ -192,11 +192,11 @@ class UrlServicioTests {
 	@DisplayName("Deberia dar EntityNotFoundException al actualizar un url de otro usuario")
 	public void deberiaDarEntityNotFoundExceptionAlActualizarUrlDeOtroUsuario() {
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findByIdAndUsuario_Id(1, usuario.getId())).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class,
-				() -> urlServicio.actualizarShortUrl(1, new ActualizarRespuesta("Titulo"), jwt));
+				() -> urlServicio.actualizarShortUrl(1, new ActualizarRespuesta("Titulo"), EMAIL));
 
 		verify(urlRepositorio, never()).save(any(Url.class));
 
@@ -206,10 +206,10 @@ class UrlServicioTests {
 	@DisplayName("Deberia eliminar exitosamente un url del usuario autenticado")
 	public void deberiaEliminarUnUrlExitosamente() {
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findByIdAndUsuario_Id(1, usuario.getId())).thenReturn(Optional.of(url));
 
-		urlServicio.EliminarUrl(1, jwt);
+		urlServicio.EliminarUrl(1, EMAIL);
 
 		verify(urlRepositorio, times(1)).delete(url);
 
@@ -219,11 +219,11 @@ class UrlServicioTests {
 	@DisplayName("Deberia dar EntityNotFoundException por url no existente al eliminar")
 	public void deberiaFallarAlEliminarUnUrlQueNoExiste() {
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findByIdAndUsuario_Id(1000, usuario.getId())).thenReturn(Optional.empty());
 
 		EntityNotFoundException err = assertThrows(
-				EntityNotFoundException.class, () -> urlServicio.EliminarUrl(1000, jwt)
+				EntityNotFoundException.class, () -> urlServicio.EliminarUrl(1000, EMAIL)
 		);
 
 		assertEquals("El url no existe", err.getMessage());
@@ -236,10 +236,10 @@ class UrlServicioTests {
 	@DisplayName("Deberia dar EntityNotFoundException al eliminar un url de otro usuario")
 	public void deberiaFallarAlEliminarUnUrlDeOtroUsuario() {
 
-		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(usuarioServicio.comprobarUsuario(EMAIL)).thenReturn(usuario);
 		when(urlRepositorio.findByIdAndUsuario_Id(1, usuario.getId())).thenReturn(Optional.empty());
 
-		assertThrows(EntityNotFoundException.class, () -> urlServicio.EliminarUrl(1, jwt));
+		assertThrows(EntityNotFoundException.class, () -> urlServicio.EliminarUrl(1, EMAIL));
 
 		verify(urlRepositorio, never()).delete(any(Url.class));
 	}

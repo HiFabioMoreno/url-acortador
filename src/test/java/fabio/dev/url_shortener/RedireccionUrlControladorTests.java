@@ -11,9 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -45,14 +43,16 @@ public class RedireccionUrlControladorTests {
     @Autowired
     private UsuarioRepositorio usuarioRepositorio;
 
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-
     @Test
     @DisplayName("POST /acortador/ - debe crear una URL y retornar 201")
     void incrementarClick_debeRetornar201() throws Exception {
 
-        Usuario usuario = usuarioRepositorio.save(new Usuario("user-123", "user@test.com"));
+        Usuario usuario = new Usuario();
+        usuario.setEmail("user@test.com");
+        usuario.setPassword("password");
+        usuario.setRole("ROLE_USER");
+        usuario.setEnabled(true);
+        usuario = usuarioRepositorio.save(usuario);
 
         Url url = new Url();
         url.setSlug("1sol4h");
