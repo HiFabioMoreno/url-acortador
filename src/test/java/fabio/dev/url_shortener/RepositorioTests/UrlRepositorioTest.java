@@ -39,8 +39,15 @@ public class UrlRepositorioTest {
     private TestEntityManager em;
 
     private Usuario crearUsuario() {
-        return usuarioRepositorio.findByExternalId("user-123")
-                .orElseGet(() -> em.persistAndFlush(new Usuario("user-123", "user-123@test.com")));
+        return usuarioRepositorio.findByEmail("user-123@test.com")
+                .orElseGet(() -> {
+                    Usuario usuario = new Usuario();
+                    usuario.setEmail("user-123@test.com");
+                    usuario.setPassword("password");
+                    usuario.setRole("ROLE_USER");
+                    usuario.setEnabled(true);
+                    return em.persistAndFlush(usuario);
+                });
     }
 
     private Url crearUrl(String slug, long clicks) {

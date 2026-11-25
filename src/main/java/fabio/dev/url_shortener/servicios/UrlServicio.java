@@ -13,7 +13,6 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.*;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,11 +37,11 @@ public class UrlServicio {
     }
 
     @Transactional
-    public UrlRespuesta crearShortUrl(@NonNull UrlSolicitud urlSolicitud, Jwt jwt) {
+    public UrlRespuesta crearShortUrl(@NonNull UrlSolicitud urlSolicitud, String email) {
 
         logger.info("Creando slog para url: {}", urlSolicitud.url());
 
-        Usuario usuario = usuarioServicio.obtenerOCrear(jwt);
+        Usuario usuario = usuarioServicio.comprobarUsuario(email);
 
         Url shortUrl = new Url();
         shortUrl.setOriginalUrl(urlSolicitud.url());
@@ -68,11 +67,11 @@ public class UrlServicio {
     }
 
     @Transactional(readOnly = true)
-    public ArrayList<UrlRespuesta> ListarUrls(Jwt jwt, Pageable pageable) {
+    public ArrayList<UrlRespuesta> ListarUrls(String email, Pageable pageable) {
 
         logger.info("Listando los urls del usuario autenticado");
 
-        Usuario usuario = usuarioServicio.obtenerOCrear(jwt);
+        Usuario usuario = usuarioServicio.comprobarUsuario(email);
 
         Slice<Url> urls = urlRepositorio.findAllByUsuario_Id(usuario.getId(), pageable);
 
@@ -93,7 +92,7 @@ public class UrlServicio {
     }
 
     @Transactional
-    public UrlRespuesta actualizarShortUrl(Integer id, ActualizarRespuesta actualizarRespuesta, Jwt jwt)  {
+    public UrlRespuesta actualizarShortUrl(Integer id, ActualizarRespuesta actualizarRespuesta, String email)  {
 
         logger.info("Actualizando url con id : {}", id);
 
@@ -101,7 +100,7 @@ public class UrlServicio {
             throw new InvalidInputException("La solicitud no puede estar vacia");
         }
 
-        Usuario usuario = usuarioServicio.obtenerOCrear(jwt);
+        Usuario usuario = usuarioServicio.comprobarUsuario(email);
 
         Url url = urlRepositorio.findByIdAndUsuario_Id(id, usuario.getId())
                 .orElseThrow( () -> new EntityNotFoundException("El url no existe"));
@@ -124,10 +123,10 @@ public class UrlServicio {
     }
 
     @Transactional
-    public void EliminarUrl(Integer id, Jwt jwt){
+    public void EliminarUrl(Integer id, String email) {
         logger.info("Eliminando url con id: {}", id);
 
-        Usuario usuario = usuarioServicio.obtenerOCrear(jwt);
+        Usuario usuario = usuarioServicio.comprobarUsuario(email);
 
         Url url = urlRepositorio.findByIdAndUsuario_Id(id, usuario.getId())
                 .orElseThrow( () -> new EntityNotFoundException("El url no existe"));

@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "URL Shortener - Auth + CRUD",
-    "description": "Flujo end-to-end: registro e inicio de sesion de usuario en Keycloak, y CRUD de URLs acortadas contra la API Spring Boot.",
+    "name": "URL Shortener - Form Login + CRUD",
+    "description": "Flujo end-to-end con formLogin de Spring Security: POST /registro/ permite registrar usuarios sin autenticacion ni token CSRF; despues se obtiene el token CSRF desde /login, se inicia sesion y se ejecuta el CRUD de URLs acortadas. Configura loginEmail y loginPassword en el environment antes de ejecutar el CRUD.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -10,55 +10,27 @@
       "value": "http://localhost:8080"
     },
     {
-      "key": "keycloakUrl",
-      "value": "http://localhost:8180"
+      "key": "loginEmail",
+      "value": "",
+      "description": "Email del usuario precargado con rol ROLE_USER. Configurar en el environment."
     },
     {
-      "key": "realm",
-      "value": "url-shortener"
+      "key": "loginPassword",
+      "value": "",
+      "description": "Password del usuario precargado. Configurar en el environment; no guardar credenciales reales en este archivo."
     },
     {
-      "key": "adminRealm",
-      "value": "master"
+      "key": "registroEmail",
+      "value": "",
+      "description": "Email del nuevo usuario. Configurar en el environment; no guardar credenciales reales en este archivo."
     },
     {
-      "key": "clientId",
-      "value": "url-shortener-client"
+      "key": "registroPassword",
+      "value": "",
+      "description": "Password del nuevo usuario. Configurar en el environment; no guardar credenciales reales en este archivo."
     },
     {
-      "key": "adminUser",
-      "value": "admin"
-    },
-    {
-      "key": "adminPassword",
-      "value": "admin"
-    },
-    {
-      "key": "adminToken",
-      "value": ""
-    },
-    {
-      "key": "testUsername",
-      "value": ""
-    },
-    {
-      "key": "testPassword",
-      "value": "Test1234!"
-    },
-    {
-      "key": "testEmail",
-      "value": ""
-    },
-    {
-      "key": "userId",
-      "value": ""
-    },
-    {
-      "key": "roleId",
-      "value": ""
-    },
-    {
-      "key": "token",
+      "key": "csrfToken",
       "value": ""
     },
     {
@@ -76,68 +48,62 @@
   ],
   "item": [
     {
+      "name": "Registrar usuario (sin autenticacion)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Registro publico 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.test('Usuario creado con ROLE_USER y habilitado', function () {",
+              "  pm.expect(body.email).to.eql(pm.collectionVariables.get('registroEmail'));",
+              "  pm.expect(body.role).to.eql('ROLE_USER');",
+              "  pm.expect(body.enabled).to.be.true;",
+              "  pm.expect(body.password).to.be.undefined;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "email",
+              "value": "{{registroEmail}}"
+            },
+            {
+              "key": "password",
+              "value": "{{registroPassword}}"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/registro/"
+      }
+    },
+    {
       "name": "Autenticacion",
       "item": [
         {
-          "name": "Obtener token de administrador",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Admin token 200', function () { pm.response.to.have.status(200); });",
-                  "const body = pm.response.json();",
-                  "pm.test('access_token presente', function () { pm.expect(body.access_token).to.be.a('string').and.not.empty; });",
-                  "pm.collectionVariables.set('adminToken', body.access_token);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/x-www-form-urlencoded"
-              }
-            ],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                {
-                  "key": "grant_type",
-                  "value": "password"
-                },
-                {
-                  "key": "client_id",
-                  "value": "admin-cli"
-                },
-                {
-                  "key": "username",
-                  "value": "{{adminUser}}"
-                },
-                {
-                  "key": "password",
-                  "value": "{{adminPassword}}"
-                }
-              ]
-            },
-            "url": "{{keycloakUrl}}/realms/{{adminRealm}}/protocol/openid-connect/token"
-          }
-        },
-        {
-          "name": "Registro de usuario",
+          "name": "Obtener CSRF y sesion desde /login",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const suffix = Date.now();",
-                  "pm.collectionVariables.set('testUsername', 'user_' + suffix);",
-                  "pm.collectionVariables.set('testEmail', 'user_' + suffix + '@example.com');",
-                  "pm.collectionVariables.set('testPassword', 'Test1234!');"
+                  "pm.cookies.jar().clear();",
+                  "pm.collectionVariables.set('csrfToken', '');"
                 ]
               }
             },
@@ -146,121 +112,43 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Usuario registrado (201)', function () { pm.response.to.have.status(201); });",
-                  "const location = pm.response.headers.get('Location');",
-                  "pm.test('Location con id de usuario', function () { pm.expect(location).to.be.a('string'); });",
-                  "if (location) {",
-                  "  const id = location.split('/').pop();",
-                  "  pm.collectionVariables.set('userId', id);",
-                  "  pm.test('userId capturado', function () { pm.expect(id).to.be.a('string').and.not.empty; });",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"{{testUsername}}\",\n  \"email\": \"{{testEmail}}\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"enabled\": true,\n  \"emailVerified\": true,\n  \"credentials\": [\n    { \"type\": \"password\", \"value\": \"{{testPassword}}\", \"temporary\": false }\n  ]\n}"
-            },
-            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users"
-          }
-        },
-        {
-          "name": "Obtener rol USER",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Rol USER 200', function () { pm.response.to.have.status(200); });",
-                  "const role = pm.response.json();",
-                  "pm.test('Rol USER existe', function () { pm.expect(role.name).to.eql('USER'); });",
-                  "pm.collectionVariables.set('roleId', role.id);"
+                  "pm.test('Pagina de login 200', function () { pm.response.to.have.status(200); });",
+                  "const q = String.fromCharCode(34);",
+                  "const html = pm.response.text();",
+                  "const marker = 'name=' + q + '_csrf' + q;",
+                  "const valueMarker = 'value=' + q;",
+                  "const start = html.indexOf(marker);",
+                  "const valueStart = html.indexOf(valueMarker, start);",
+                  "const end = html.indexOf(q, valueStart + valueMarker.length);",
+                  "const token = valueStart > -1 && end > valueStart ? html.slice(valueStart + valueMarker.length, end) : null;",
+                  "pm.test('CSRF token presente', function () { pm.expect(token).to.be.a('string').and.not.empty; });",
+                  "if (token) { pm.collectionVariables.set('csrfToken', token); }"
                 ]
               }
             }
           ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/roles/USER"
+            "header": [],
+            "url": "{{baseUrl}}/login"
           }
         },
         {
-          "name": "Asignar rol USER",
+          "name": "Iniciar sesion (formLogin)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Rol asignado (204)', function () { pm.response.to.have.status(204); });"
+                  "pm.test('Login redirige (302)', function () { pm.response.to.have.status(302); });"
                 ]
               }
             }
           ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "[{\n  \"id\": \"{{roleId}}\",\n  \"name\": \"USER\"\n}]"
-            },
-            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users/{{userId}}/role-mappings/realm"
-          }
-        },
-        {
-          "name": "Inicio de sesion",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Login 200', function () { pm.response.to.have.status(200); });",
-                  "const body = pm.response.json();",
-                  "pm.test('access_token presente', function () { pm.expect(body.access_token).to.be.a('string').and.not.empty; });",
-                  "pm.test('token_type Bearer', function () { pm.expect(body.token_type).to.eql('Bearer'); });",
-                  "pm.collectionVariables.set('token', body.access_token);",
-                  "function b64urlDecode(s) {",
-                  "  s = s.replace(/-/g, '+').replace(/_/g, '/');",
-                  "  while (s.length % 4) { s += '='; }",
-                  "  return atob(s);",
-                  "}",
-                  "const claims = JSON.parse(b64urlDecode(body.access_token.split('.')[1]));",
-                  "pm.test('Token pertenece al usuario registrado', function () { pm.expect(claims.preferred_username).to.eql(pm.collectionVariables.get('testUsername')); });",
-                  "pm.test('Token incluye rol USER', function () { pm.expect(claims.realm_access.roles).to.include('USER'); });"
-                ]
-              }
-            }
-          ],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
           "request": {
             "method": "POST",
             "header": [
@@ -273,24 +161,69 @@
               "mode": "urlencoded",
               "urlencoded": [
                 {
-                  "key": "grant_type",
-                  "value": "password"
-                },
-                {
-                  "key": "client_id",
-                  "value": "{{clientId}}"
-                },
-                {
                   "key": "username",
-                  "value": "{{testUsername}}"
+                  "value": "{{loginEmail}}"
                 },
                 {
                   "key": "password",
-                  "value": "{{testPassword}}"
+                  "value": "{{loginPassword}}"
+                },
+                {
+                  "key": "_csrf",
+                  "value": "{{csrfToken}}"
                 }
               ]
             },
-            "url": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token"
+            "url": "{{baseUrl}}/login"
+          }
+        },
+        {
+          "name": "Obtener CSRF autenticado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Pagina de login 200', function () { pm.response.to.have.status(200); });",
+                  "const q = String.fromCharCode(34);",
+                  "const html = pm.response.text();",
+                  "const marker = 'name=' + q + '_csrf' + q;",
+                  "const valueMarker = 'value=' + q;",
+                  "const start = html.indexOf(marker);",
+                  "const valueStart = html.indexOf(valueMarker, start);",
+                  "const end = html.indexOf(q, valueStart + valueMarker.length);",
+                  "const token = valueStart > -1 && end > valueStart ? html.slice(valueStart + valueMarker.length, end) : null;",
+                  "pm.test('CSRF token autenticado presente', function () { pm.expect(token).to.be.a('string').and.not.empty; });",
+                  "if (token) { pm.collectionVariables.set('csrfToken', token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/login"
+          }
+        },
+        {
+          "name": "Verificar sesion activa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Listado 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Respuesta es arreglo', function () { pm.expect(pm.response.json()).to.be.an('array'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/acortador/"
           }
         }
       ]
@@ -306,7 +239,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set('originalUrl', 'https://example.com/postman/' + pm.collectionVariables.get('testUsername'));"
+                  "const email = pm.collectionVariables.get('loginEmail') || 'postman-user';",
+                  "pm.collectionVariables.set('originalUrl', 'https://example.com/postman/' + encodeURIComponent(email) + '/' + Date.now());"
                 ]
               }
             },
@@ -332,12 +266,12 @@
             "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-TOKEN",
+                "value": "{{csrfToken}}"
               }
             ],
             "body": {
@@ -367,12 +301,7 @@
           ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
+            "header": [],
             "url": "{{baseUrl}}/acortador/"
           }
         },
@@ -396,12 +325,12 @@
             "method": "PATCH",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-TOKEN",
+                "value": "{{csrfToken}}"
               }
             ],
             "body": {
@@ -455,12 +384,7 @@
           ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
+            "header": [],
             "url": "{{baseUrl}}/acortador/"
           }
         },
@@ -481,8 +405,8 @@
             "method": "DELETE",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
+                "key": "X-CSRF-TOKEN",
+                "value": "{{csrfToken}}"
               }
             ],
             "url": "{{baseUrl}}/acortador/{{urlId}}/"
@@ -507,12 +431,7 @@
           ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
+            "header": [],
             "url": "{{baseUrl}}/acortador/"
           }
         }
@@ -538,37 +457,18 @@
             "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-TOKEN",
+                "value": "{{csrfToken}}"
               }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"url\": \"ftp://no-es-valida\"\n}"
             },
-            "url": "{{baseUrl}}/acortador/"
-          }
-        },
-        {
-          "name": "Acceso sin token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Sin token rechazado (401)', function () { pm.response.to.have.status(401); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
             "url": "{{baseUrl}}/acortador/"
           }
         },
@@ -589,12 +489,12 @@
             "method": "PATCH",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              },
-              {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-TOKEN",
+                "value": "{{csrfToken}}"
               }
             ],
             "body": {
@@ -602,6 +502,61 @@
               "raw": "{\n  \"titulo\": \"No existe\"\n}"
             },
             "url": "{{baseUrl}}/acortador/999999/"
+          }
+        },
+        {
+          "name": "Cerrar sesion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Logout redirige (302)', function () { pm.response.to.have.status(302); });"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          },
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "_csrf",
+                  "value": "{{csrfToken}}"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/logout"
+          }
+        },
+        {
+          "name": "Acceso sin sesion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Sin sesion rechazado (401)', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/acortador/"
           }
         }
       ]
