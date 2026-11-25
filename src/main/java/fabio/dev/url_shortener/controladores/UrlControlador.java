@@ -13,8 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,8 +46,8 @@ public class UrlControlador {
     })
     @GetMapping("/")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<ArrayList<UrlRespuesta>> ListarUrls(@AuthenticationPrincipal Jwt jwt, Pageable pageable) {
-        return ResponseEntity.ok(urlServicio.ListarUrls(jwt, pageable));
+    public ResponseEntity<ArrayList<UrlRespuesta>> ListarUrls(Authentication authentication, Pageable pageable) {
+        return ResponseEntity.ok(urlServicio.ListarUrls(authentication.getName(), pageable));
     }
 
     @Operation(
@@ -71,8 +70,8 @@ public class UrlControlador {
     })
     @PostMapping("/")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<UrlRespuesta> registrarUrl(@Valid @RequestBody UrlSolicitud urlSolicitud, @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(urlServicio.crearShortUrl(urlSolicitud, jwt));
+    public ResponseEntity<UrlRespuesta> registrarUrl(@Valid @RequestBody UrlSolicitud urlSolicitud, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(urlServicio.crearShortUrl(urlSolicitud, authentication.getName()));
     }
 
     @Operation(
@@ -99,8 +98,8 @@ public class UrlControlador {
     })
     @PatchMapping("/{id}/")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<UrlRespuesta> actualizarUrl(@PathVariable @Positive Integer id, @Valid @RequestBody ActualizarRespuesta dto, @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(urlServicio.actualizarShortUrl(id, dto, jwt));
+    public ResponseEntity<UrlRespuesta> actualizarUrl(@PathVariable @Positive Integer id, @Valid @RequestBody ActualizarRespuesta dto, Authentication authentication) {
+        return ResponseEntity.ok(urlServicio.actualizarShortUrl(id, dto, authentication.getName()));
     }
 
     @Operation(
@@ -123,8 +122,8 @@ public class UrlControlador {
     })
     @DeleteMapping("/{id}/")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<Void> eliminarUrl(@PathVariable @Positive Integer id, @AuthenticationPrincipal Jwt jwt) {
-        urlServicio.EliminarUrl(id, jwt);
+    public ResponseEntity<Void> eliminarUrl(@PathVariable @Positive Integer id, Authentication authentication) {
+        urlServicio.EliminarUrl(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
