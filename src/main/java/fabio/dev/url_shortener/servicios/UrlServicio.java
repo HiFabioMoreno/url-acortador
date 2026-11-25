@@ -8,15 +8,16 @@ import fabio.dev.url_shortener.modelos.Url;
 import fabio.dev.url_shortener.modelos.Usuario;
 import fabio.dev.url_shortener.repositorios.UrlRepositorio;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.transaction.Transactional;
+
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.*;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import static fabio.dev.url_shortener.modelos.Url.GeneradorUrl;
 import static fabio.dev.url_shortener.modelos.Url.GenerarTimestamp;
@@ -66,13 +67,14 @@ public class UrlServicio {
                 shortUrl.getClicks());
     }
 
-    public ArrayList<UrlRespuesta> ListarUrls(Jwt jwt) {
+    @Transactional(readOnly = true)
+    public ArrayList<UrlRespuesta> ListarUrls(Jwt jwt, Pageable pageable) {
 
         logger.info("Listando los urls del usuario autenticado");
 
         Usuario usuario = usuarioServicio.obtenerOCrear(jwt);
 
-        List<Url> urls = urlRepositorio.findAllByUsuario_Id(usuario.getId());
+        Slice<Url> urls = urlRepositorio.findAllByUsuario_Id(usuario.getId(), pageable);
 
         ArrayList<UrlRespuesta> urlsList = new ArrayList<>();
 

@@ -15,9 +15,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.*;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.LocalDate;
@@ -101,21 +103,41 @@ class UrlServicioTests {
 	}
 
 	@Test
-	@DisplayName("Deberia listar solo los urls del usuario autenticado")
+	@DisplayName("Deberia listar solo los urls del usuario autenticado aplicando el pageable")
 	public void deberiaMostrarTodosLosUrlsGuardadosExitosamente(){
 
 		List<Url> urlsMock = List.of(url);
+		Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "titulo"));
 
 		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
-		when(urlRepositorio.findAllByUsuario_Id(usuario.getId())).thenReturn(urlsMock);
+		when(urlRepositorio.findAllByUsuario_Id(usuario.getId(), pageable))
+				.thenReturn(new SliceImpl<>(urlsMock));
 
-		ArrayList<UrlRespuesta> urls = urlServicio.ListarUrls(jwt);
+		ArrayList<UrlRespuesta> urls = urlServicio.ListarUrls(jwt, pageable);
 
 		assertEquals(1, urls.size());
 		assertEquals("https://www.google.com", urls.get(0).originalUrl());
 
-		verify(urlRepositorio, times(1)).findAllByUsuario_Id(usuario.getId());
+		verify(urlRepositorio, times(1)).findAllByUsuario_Id(usuario.getId(), pageable);
 		verify(urlRepositorio, never()).findAll();
+
+	}
+
+	@Test
+	@DisplayName("Deberia propagar el orden descendente al repositorio")
+	public void deberiaListarUrlsEnOrdenDescendente() {
+
+		Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC , "titulo"));
+
+		when(usuarioServicio.obtenerOCrear(jwt)).thenReturn(usuario);
+		when(urlRepositorio.findAllByUsuario_Id(eq(usuario.getId()), any(Pageable.class)))
+				.thenReturn(new SliceImpl<>(List.of(url)));
+
+		urlServicio.ListarUrls(jwt, pageable);
+
+		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+		verify(urlRepositorio).findAllByUsuario_Id(eq(usuario.getId()), pageableCaptor.capture());
+		assertEquals(Sort.Direction.DESC, pageableCaptor.getValue().getSort().getOrderFor("titulo").getDirection());
 
 	}
 

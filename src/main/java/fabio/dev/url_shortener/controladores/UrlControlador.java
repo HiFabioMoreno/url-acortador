@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,7 +33,7 @@ public class UrlControlador {
 
     @Operation(
             summary = "Obtener todas las URLs",
-            description = "Obtiene una lista con todas las URLs acortadas registradas en el sistema."
+            description = "Obtiene las URLs acortadas del usuario autenticado. Acepta page, size y sort (por ejemplo sort=slug,desc)."
     )
     @ApiResponses({
             @ApiResponse(
@@ -46,8 +47,8 @@ public class UrlControlador {
     })
     @GetMapping("/")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<ArrayList<UrlRespuesta>> ListarUrls(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(urlServicio.ListarUrls(jwt));
+    public ResponseEntity<ArrayList<UrlRespuesta>> ListarUrls(@AuthenticationPrincipal Jwt jwt, Pageable pageable) {
+        return ResponseEntity.ok(urlServicio.ListarUrls(jwt, pageable));
     }
 
     @Operation(

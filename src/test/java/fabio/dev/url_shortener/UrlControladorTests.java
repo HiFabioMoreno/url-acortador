@@ -10,11 +10,14 @@ import fabio.dev.url_shortener.servicios.UrlServicio;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -28,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -69,7 +73,7 @@ public class UrlControladorTests {
     }
 
     @Test
-    void listarUrls_DebeRetornarLasUrlsDelUsuarioAutenticado() throws Exception {
+    void listarUrls_DebeRetornarLasUrlsDelUsuarioAutenticadoConPageable() throws Exception {
 
         UrlRespuesta respuesta = new UrlRespuesta(
                 url.getId(),
@@ -81,16 +85,42 @@ public class UrlControladorTests {
                 url.getClicks()
         );
 
-        when(urlServicio.ListarUrls(any(Jwt.class))).thenReturn(new ArrayList<>(List.of(respuesta)));
+        when(urlServicio.ListarUrls(any(Jwt.class), any(Pageable.class)))
+                .thenReturn(new ArrayList<>(List.of(respuesta)));
 
         mockMvc.perform(get("/acortador/")
+                        .param("page", "0")
+                        .param("size", "5")
+                        .param("sort", "slug,desc")
                         .with(jwt().jwt(j -> j.subject("user-123"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].slug").value("uzdkr8"))
                 .andExpect(jsonPath("$[0].originalUrl").value("https://www.google.com"));
 
-        verify(urlServicio, times(1)).ListarUrls(any(Jwt.class));
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(urlServicio, times(1)).ListarUrls(any(Jwt.class), pageableCaptor.capture());
+
+        Pageable pageable = pageableCaptor.getValue();
+        assertEquals(0, pageable.getPageNumber());
+        assertEquals(5, pageable.getPageSize());
+        assertEquals(Sort.Direction.DESC, pageable.getSort().getOrderFor("slug").getDirection());
+    }
+
+    @Test
+    void listarUrls_DebeAceptarOrdenAscendente() throws Exception {
+
+        when(urlServicio.ListarUrls(any(Jwt.class), any(Pageable.class))).thenReturn(new ArrayList<>());
+
+        mockMvc.perform(get("/acortador/")
+                        .param("sort", "slug,asc")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(urlServicio).ListarUrls(any(Jwt.class), pageableCaptor.capture());
+        assertEquals(Sort.Direction.ASC, pageableCaptor.getValue().getSort().getOrderFor("slug").getDirection());
     }
 
     @Test
