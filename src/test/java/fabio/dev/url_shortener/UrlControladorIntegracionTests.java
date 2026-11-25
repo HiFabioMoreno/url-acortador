@@ -66,8 +66,12 @@ public class UrlControladorIntegracionTests {
     }
 
     private Url crearUrl(String slug) {
+        return crearUrl(slug, "https://ejemplo.com");
+    }
+
+    private Url crearUrl(String slug, String originalUrl) {
         Url url = new Url();
-        url.setOriginalUrl("https://ejemplo.com");
+        url.setOriginalUrl(originalUrl);
         url.setSlug(slug);
         url.setUsuario(crearUsuario("user-123"));
         url.setFechaRegistro(Url.GenerarTimestamp());
@@ -107,6 +111,53 @@ public class UrlControladorIntegracionTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].originalUrl").value("https://ejemplo.com"));
+    }
+
+    @Test
+    @DisplayName("GET /acortador/ - debe ordenar las URLs de forma ascendente y descendente")
+    void listarUrls_debeOrdenarAscendenteYDescendentemente() throws Exception {
+
+        crearUrl("aaa111", "https://uno.com");
+        crearUrl("bbb222", "https://dos.com");
+        crearUrl("ccc333", "https://tres.com");
+
+        mockMvc.perform(get("/acortador/")
+                        .param("sort", "slug,asc")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].slug").value("aaa111"))
+                .andExpect(jsonPath("$[2].slug").value("ccc333"));
+
+        mockMvc.perform(get("/acortador/")
+                        .param("sort", "slug,desc")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].slug").value("ccc333"))
+                .andExpect(jsonPath("$[2].slug").value("aaa111"));
+    }
+
+    @Test
+    @DisplayName("GET /acortador/ - debe paginar las URLs manteniendo el array como respuesta")
+    void listarUrls_debePaginar() throws Exception {
+
+        crearUrl("aaa111", "https://uno.com");
+        crearUrl("bbb222", "https://dos.com");
+        crearUrl("ccc333", "https://tres.com");
+
+        mockMvc.perform(get("/acortador/")
+                        .param("page", "1")
+                        .param("size", "2")
+                        .param("sort", "slug,asc")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].slug").value("ccc333"));
     }
 
     @Test
