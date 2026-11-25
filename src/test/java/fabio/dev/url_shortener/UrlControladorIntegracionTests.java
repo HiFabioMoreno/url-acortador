@@ -154,6 +154,27 @@ public class UrlControladorIntegracionTests {
 
 
     @Test
+    @DisplayName("POST /acortador/ - URL duplicada del mismo usuario debe retornar 409")
+    void registrarUrl_conUrlDuplicada_debeRetornar409() throws Exception {
+
+        crearUrl("abXzy");
+
+        mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UrlSolicitud("https://ejemplo.com"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.errorCode").value("URL_DUPLICADA"))
+                .andExpect(jsonPath("$.mensaje").value("El recurso ya existe o viola una restriccion de unicidad"))
+                .andExpect(jsonPath("$.mensajeDesarrollador").value(containsString("uk_url_usuario_original_url")))
+                .andExpect(jsonPath("$.path").exists())
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
     @DisplayName("PATCH /acortador/{id}/ - debe actualizar y retornar 200")
     void actualizarUrl_debeRetornar200() throws Exception {
 

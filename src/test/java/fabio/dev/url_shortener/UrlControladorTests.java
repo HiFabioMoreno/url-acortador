@@ -14,6 +14,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -26,6 +27,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -178,6 +180,32 @@ public class UrlControladorTests {
                 .andExpect(jsonPath("$.errorCode").value("URL_NO_VALIDA"))
                 .andExpect(jsonPath("$.path").exists())
                 .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void registrarUrl_CuandoHayViolacionDeIntegridad_DebeRetornar409() throws Exception {
+
+        UrlSolicitud urlSolicitud = new UrlSolicitud("https://www.google.com");
+
+        when(urlServicio.crearShortUrl(any(UrlSolicitud.class), any(Jwt.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key value violates unique constraint \"uk_url_usuario_original_url\""));
+
+        mockMvc.perform(post("/acortador/")
+                        .with(jwt().jwt(j -> j.subject("user-123"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(urlSolicitud)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.errorCode").value("URL_DUPLICADA"))
+                .andExpect(jsonPath("$.mensaje").value("El recurso ya existe o viola una restriccion de unicidad"))
+                .andExpect(jsonPath("$.mensajeDesarrollador").value(containsString("uk_url_usuario_original_url")))
+                .andExpect(jsonPath("$.path").exists())
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        verify(urlServicio, times(1)).crearShortUrl(any(UrlSolicitud.class), any(Jwt.class));
     }
 
     @Test
